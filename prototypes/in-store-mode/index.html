@@ -1,0 +1,374 @@
+<!doctype html>
+<!-- Three in-store variants, switchable via ?variant=, in a throwaway dependency-free prototype. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CartSync · In-store prototype</title>
+  <style>
+    :root { --ink:#18231d; --muted:#647168; --line:#d8e0da; --paper:#f7faf7; --card:#fff; --green:#137a58; --green-dark:#0b563d; --mint:#e7f4ed; --warn:#fff5d9; --warn-line:#e5b94b; --danger:#a63b32; --shadow:0 14px 45px rgba(25,55,39,.11); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--ink); background:linear-gradient(145deg,#edf5ef 0,#f8faf7 48%,#edf0ea 100%); font:15px/1.42 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:3px solid rgba(19,122,88,.28); outline-offset:2px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:.4rem; font-size:clamp(1.75rem,7vw,2.55rem); line-height:1.03; letter-spacing:-.04em; }
+    h2 { margin-bottom:.35rem; font-size:1.22rem; letter-spacing:-.025em; }
+    h3 { margin-bottom:.25rem; font-size:1rem; }
+    .app { min-height:100vh; padding-bottom:104px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid rgba(216,224,218,.82); background:rgba(247,250,247,.86); backdrop-filter:blur(16px); }
+    .brand { display:flex; align-items:center; gap:9px; font-weight:800; letter-spacing:-.02em; }
+    .brand-mark { display:grid; place-items:center; width:30px; height:30px; border-radius:9px; color:white; background:var(--green); }
+    .prototype-tag,.eyebrow { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .top-actions { display:flex; align-items:center; gap:8px; }
+    .shell { width:min(100%,1120px); margin:0 auto; padding:22px 16px; }
+    .hero { margin-bottom:20px; }
+    .muted { color:var(--muted); }
+    .small { font-size:.85rem; }
+    .card { border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.92); box-shadow:0 6px 24px rgba(25,55,39,.05); }
+    .button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 15px; border:1px solid var(--line); border-radius:12px; color:var(--ink); background:white; font-weight:750; text-decoration:none; }
+    .button.primary { border-color:var(--green); color:white; background:var(--green); }
+    .button.primary:hover { background:var(--green-dark); }
+    .button.ghost { background:transparent; }
+    .button.danger { color:var(--danger); }
+    .button.icon { min-width:44px; padding:9px; }
+    .button:disabled { cursor:not-allowed; opacity:.4; }
+    .pill { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; color:#405048; background:#edf2ee; font-size:.77rem; font-weight:750; }
+    .pill.success { color:var(--green-dark); background:var(--mint); }
+    .pill.warning { color:#735500; background:var(--warn); }
+    .trip-first { display:grid; gap:16px; }
+    .trip-summary { padding:20px; }
+    .trip-meta { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
+    .trip-actions { display:grid; gap:10px; }
+    .preview-list { display:grid; gap:8px; margin-top:14px; }
+    .preview-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--line); }
+    .preview-row:last-child { border-bottom:0; }
+    .shop-header { position:sticky; top:0; z-index:10; margin:-22px -16px 18px; padding:14px 16px; border-bottom:1px solid var(--line); background:rgba(247,250,247,.94); backdrop-filter:blur(18px); }
+    .shop-headline { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .progress-line { display:flex; align-items:center; gap:10px; margin-top:10px; }
+    progress { width:100%; height:9px; border:0; border-radius:999px; overflow:hidden; accent-color:var(--green); }
+    progress::-webkit-progress-bar { background:#dfe7e1; }
+    progress::-webkit-progress-value { background:var(--green); }
+    .route { display:grid; gap:16px; }
+    .department { scroll-margin-top:145px; overflow:hidden; }
+    .department-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 15px; border-bottom:1px solid var(--line); }
+    .department-body { display:grid; }
+    .department.warning { border-color:var(--warn-line); background:#fffdf6; }
+    .entry-row { display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:center; gap:10px; min-height:66px; padding:9px 12px; border-bottom:1px solid var(--line); }
+    .entry-row:last-child { border-bottom:0; }
+    .entry-info { min-width:0; padding:7px 0; text-align:left; border:0; color:inherit; background:transparent; }
+    .entry-info strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .entry-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; color:var(--muted); font-size:.8rem; }
+    .check { display:grid; place-items:center; width:42px; height:42px; border:2px solid #9bad9f; border-radius:12px; color:white; background:white; font-size:1.25rem; font-weight:900; }
+    .check.checked { border-color:var(--green); background:var(--green); }
+    .assign { min-height:36px; padding:7px 10px; }
+    .route-footer { display:grid; gap:14px; margin-top:18px; }
+    details.acquired { overflow:hidden; }
+    details.acquired summary,details.state summary { cursor:pointer; padding:15px; font-weight:800; }
+    .acquired-list { padding:0 12px 12px; }
+    .finish-card { padding:18px; text-align:center; }
+    .finish-card .button { width:100%; }
+    .state-panel { margin-top:16px; }
+    .state-panel pre { max-height:320px; margin:0; padding:0 15px 15px; overflow:auto; font-size:.72rem; white-space:pre-wrap; }
+    .navigator { position:sticky; top:105px; z-index:8; display:flex; gap:8px; margin:0 -16px 16px; padding:10px 16px; overflow:auto; border-bottom:1px solid var(--line); background:rgba(247,250,247,.96); scrollbar-width:none; }
+    .navigator button { flex:0 0 auto; min-height:38px; padding:7px 11px; border:1px solid var(--line); border-radius:999px; background:white; font-weight:750; }
+    .variant-b .department { border:0; border-radius:0; box-shadow:none; background:transparent; }
+    .variant-b .department-head { padding:19px 2px 8px; border-bottom:2px solid var(--ink); }
+    .variant-b .entry-row { margin-top:8px; border:1px solid var(--line); border-radius:13px; background:white; }
+    .next-stop { padding:20px; color:white; background:linear-gradient(135deg,var(--green-dark),var(--green)); }
+    .next-stop .muted { color:#d9eee5; }
+    .next-stop .entry-row { margin-top:12px; border:1px solid rgba(255,255,255,.22); border-radius:14px; background:rgba(255,255,255,.1); }
+    .next-stop .entry-info { color:white; }
+    .next-stop .entry-meta { color:#d9eee5; }
+    .variant-c .upcoming { display:grid; gap:12px; margin-top:16px; }
+    .variant-c .upcoming .department { box-shadow:none; }
+    .screen-title { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
+    .settings-grid { display:grid; gap:16px; }
+    .settings-list { overflow:hidden; }
+    .dept-edit-row { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:9px; padding:12px; border-bottom:1px solid var(--line); background:white; }
+    .dept-edit-row:last-child { border-bottom:0; }
+    .dept-edit-row.dragging { opacity:.45; }
+    .drag-handle { min-width:40px; min-height:40px; border:1px solid var(--line); border-radius:10px; background:#f6f8f6; font-size:1.1rem; }
+    .dept-name { width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; }
+    .move-controls { display:flex; gap:4px; }
+    .move-controls button { min-width:35px; min-height:35px; padding:5px; border:1px solid var(--line); border-radius:9px; background:white; }
+    .dept-sub { grid-column:2/-1; display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:.78rem; }
+    .add-dept { display:grid; gap:9px; padding:16px; }
+    .field { display:grid; gap:6px; }
+    .field label { color:#45534b; font-size:.78rem; font-weight:800; }
+    .field input,.field select,.field textarea,.search { width:100%; min-height:44px; padding:10px 12px; border:1px solid #bdc9c0; border-radius:11px; color:var(--ink); background:white; }
+    .field textarea { min-height:84px; resize:vertical; }
+    .error { color:var(--danger); font-size:.82rem; font-weight:700; }
+    .overlay { position:fixed; inset:0; z-index:50; display:grid; align-items:end; background:rgba(14,27,20,.48); }
+    .sheet { width:100%; max-height:94vh; padding:18px; overflow:auto; border-radius:24px 24px 0 0; background:var(--paper); box-shadow:var(--shadow); }
+    .sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:15px; }
+    .search-wrap { position:sticky; top:-18px; z-index:2; display:grid; grid-template-columns:1fr auto; gap:8px; margin:0 -18px 15px; padding:16px 18px 12px; background:var(--paper); }
+    .results { display:grid; gap:9px; }
+    .result { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; padding:12px; border:1px solid var(--line); border-radius:14px; background:white; }
+    .editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .wide { grid-column:1/-1; }
+    .review-section { margin-top:18px; }
+    .review-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+    .review-row input { width:20px; height:20px; }
+    .toast { position:fixed; left:50%; bottom:82px; z-index:80; display:flex; align-items:center; gap:10px; width:max-content; max-width:calc(100vw - 28px); padding:11px 14px; border-radius:13px; color:white; background:#13231a; box-shadow:var(--shadow); transform:translateX(-50%); }
+    .toast button { border:0; color:#a9e7ca; background:transparent; font-weight:850; }
+    .switcher { position:fixed; left:50%; bottom:18px; z-index:90; display:flex; align-items:center; gap:8px; padding:6px; border-radius:999px; color:white; background:#14231b; box-shadow:var(--shadow); transform:translateX(-50%); }
+    .switcher button { display:grid; place-items:center; width:40px; height:40px; border:0; border-radius:50%; color:white; background:#2c3a32; }
+    .switch-label { min-width:118px; text-align:center; font-size:.78rem; font-weight:850; }
+    @media (min-width:760px) {
+      .topbar { padding:16px 28px; }
+      .shell { padding:34px 28px 120px; }
+      .trip-first { grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr); }
+      .trip-actions { grid-template-columns:1fr 1fr; }
+      .shop-header { top:0; margin:-34px -28px 22px; padding:18px 28px; }
+      .navigator { top:116px; margin:0 0 20px; border:1px solid var(--line); border-radius:16px; }
+      .variant-a .route { grid-template-columns:1fr 1fr; align-items:start; }
+      .variant-a .route .department.warning { grid-column:1/-1; }
+      .variant-b { width:min(100%,900px); margin:0 auto; }
+      .variant-c { display:grid; grid-template-columns:minmax(320px,.85fr) minmax(0,1.15fr); gap:20px; align-items:start; }
+      .variant-c .next-stop { position:sticky; top:132px; }
+      .variant-c .upcoming { margin-top:0; }
+      .settings-grid { grid-template-columns:minmax(0,1fr) 320px; align-items:start; }
+      .sheet { width:min(680px,calc(100% - 40px)); max-height:88vh; margin:0 auto 20px; border-radius:24px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app"></div>
+  <div id="toast"></div>
+  <nav class="switcher" aria-label="Prototype variants">
+    <button type="button" data-action="previous-variant" aria-label="Previous variant">←</button>
+    <div class="switch-label" id="variant-label"></div>
+    <button type="button" data-action="next-variant" aria-label="Next variant">→</button>
+  </nav>
+  <script>
+    const units = ['each','pack','g','kg','oz','lb','mL','L','fl oz','gal'];
+    const variantNames = { A:'Route Stream', B:'Route Navigator', C:'Next Stop' };
+    const baseData = {
+      store: { id:'s-costco', label:'Costco Downtown' },
+      departments: [
+        { id:'d-produce', name:'Produce' },
+        { id:'d-dairy', name:'Dairy & eggs' },
+        { id:'d-pantry', name:'Pantry' },
+        { id:'d-household', name:'Household' },
+        { id:'d-bakery', name:'Bakery' },
+        { id:'d-frozen', name:'Frozen' }
+      ],
+      products: [
+        { id:'p-bananas', name:'Bananas', note:'A little green' },
+        { id:'p-tomatoes', name:'Tomatoes', note:'' },
+        { id:'p-milk', name:'Milk 2%', note:'Check the latest expiry date' },
+        { id:'p-eggs', name:'Eggs', note:'Free range if available' },
+        { id:'p-oil', name:'Olive oil', note:'Extra virgin' },
+        { id:'p-coffee', name:'Coffee beans', note:'Medium roast' },
+        { id:'p-soap', name:'Dish soap', note:'Unscented' },
+        { id:'p-paper', name:'Paper towels', note:'' },
+        { id:'p-croissants', name:'Croissants', note:'' },
+        { id:'p-flowers', name:'Flowers', note:'Bright seasonal bunch' },
+        { id:'p-water', name:'Sparkling water', note:'' },
+        { id:'p-rice', name:'Rice', note:'' }
+      ],
+      storeProducts: [
+        { productId:'p-bananas', departmentId:'d-produce', score:94 },
+        { productId:'p-tomatoes', departmentId:'d-produce', score:78 },
+        { productId:'p-milk', departmentId:'d-dairy', score:97 },
+        { productId:'p-eggs', departmentId:'d-dairy', score:91 },
+        { productId:'p-oil', departmentId:'d-pantry', score:73 },
+        { productId:'p-coffee', departmentId:'d-pantry', score:89 },
+        { productId:'p-soap', departmentId:'d-household', score:68 },
+        { productId:'p-paper', departmentId:'d-household', score:82 },
+        { productId:'p-croissants', departmentId:'d-bakery', score:57 },
+        { productId:'p-flowers', departmentId:null, score:20 }
+      ],
+      trip: {
+        id:'t-weekend', name:'Weekend Costco · Sep 30', storeId:'s-costco', status:'planned',
+        entries:[
+          { id:'e-bananas', productId:'p-bananas', amount:6, unit:'each', acquired:false },
+          { id:'e-tomatoes', productId:'p-tomatoes', amount:1, unit:'pack', acquired:false },
+          { id:'e-milk', productId:'p-milk', amount:2, unit:'each', acquired:false },
+          { id:'e-eggs', productId:'p-eggs', amount:1, unit:'pack', acquired:false },
+          { id:'e-coffee', productId:'p-coffee', amount:1, unit:'pack', acquired:false },
+          { id:'e-paper', productId:'p-paper', amount:1, unit:'pack', acquired:false },
+          { id:'e-croissants', productId:'p-croissants', amount:1, unit:'pack', acquired:true },
+          { id:'e-flowers', productId:'p-flowers', amount:1, unit:'each', acquired:false }
+        ]
+      }
+    };
+
+    const state = {
+      data: structuredClone(baseData), variant:getVariant(), screen:'trip', query:'', editingEntryId:null,
+      addOpen:false, finishOpen:false, settingsError:'', toast:null, draggedDepartmentId:null,
+      carryForward:new Set(), destination:'existing', completedPreview:false, resumePending:false
+    };
+
+    function getVariant() { const value=new URLSearchParams(location.search).get('variant')||'A'; return variantNames[value]?value:'A'; }
+    function esc(value) { return String(value??'').replace(/[&<>"]/g,char=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[char]); }
+    function slug() { return Math.random().toString(36).slice(2,9); }
+    function normalize(value) { return value.trim().replace(/\s+/g,' ').toLocaleLowerCase(); }
+    function product(id) { return state.data.products.find(item=>item.id===id); }
+    function department(id) { return state.data.departments.find(item=>item.id===id); }
+    function storeProduct(productId) { return state.data.storeProducts.find(item=>item.productId===productId); }
+    function entry(id) { return state.data.trip.entries.find(item=>item.id===id); }
+    function entryForProduct(productId) { return state.data.trip.entries.find(item=>item.productId===productId); }
+    function acquiredEntries() { return state.data.trip.entries.filter(item=>item.acquired); }
+    function remainingEntries() { return state.data.trip.entries.filter(item=>!item.acquired); }
+    function plannedEntriesOrdered() { const positions=new Map(state.data.departments.map((item,index)=>[item.id,index]));return [...state.data.trip.entries].sort((a,b)=>{const aPosition=positions.get(storeProduct(a.productId)?.departmentId)??Number.MAX_SAFE_INTEGER,bPosition=positions.get(storeProduct(b.productId)?.departmentId)??Number.MAX_SAFE_INTEGER;return aPosition-bPosition||product(a.productId).name.localeCompare(product(b.productId).name);}); }
+    function entriesForDepartment(departmentId, acquired=false) {
+      return state.data.trip.entries.filter(item=>item.acquired===acquired && (storeProduct(item.productId)?.departmentId||null)===(departmentId||null)).sort((a,b)=>product(a.productId).name.localeCompare(product(b.productId).name));
+    }
+    function routeGroups() {
+      const groups=state.data.departments.map(item=>({ department:item, entries:entriesForDepartment(item.id) })).filter(group=>group.entries.length);
+      const unassigned=entriesForDepartment(null);
+      if (unassigned.length) groups.push({ department:null, entries:unassigned });
+      return groups;
+    }
+    function assignedCount(departmentId) { return state.data.storeProducts.filter(item=>item.departmentId===departmentId).length; }
+    function header() {
+      return `<header class="topbar"><div class="brand"><span class="brand-mark">C</span>CartSync</div><div class="top-actions"><span class="prototype-tag">Throwaway prototype</span>${state.screen!=='settings'?'<button class="button icon ghost" data-action="open-settings" aria-label="Store settings">⚙</button>':''}</div></header>`;
+    }
+    function progressBlock() {
+      const done=acquiredEntries().length,total=state.data.trip.entries.length;
+      return `<div class="progress-line"><progress value="${done}" max="${total||1}" aria-label="${done} of ${total} acquired"></progress><strong>${done}/${total}</strong></div>`;
+    }
+    function entryRow(item, options={}) {
+      const p=product(item.productId), sp=storeProduct(item.productId), dept=department(sp?.departmentId);
+      return `<div class="entry-row" data-entry-row="${item.id}">
+        <button type="button" class="check ${item.acquired?'checked':''}" data-action="toggle-acquired" data-entry-id="${item.id}" aria-label="${item.acquired?'Mark not acquired':'Mark acquired'}: ${esc(p.name)}">${item.acquired?'✓':''}</button>
+        <button type="button" class="entry-info" data-action="open-editor" data-entry-id="${item.id}"><strong>${esc(p.name)}</strong><span class="entry-meta"><span>${item.amount} ${esc(item.unit)}</span>${p.note?`<span>· ${esc(p.note)}</span>`:''}${item.acquired&&dept?`<span>· ${esc(dept.name)}</span>`:''}</span></button>
+        ${!sp?.departmentId&&!item.acquired?'<button type="button" class="button assign" data-action="quick-assign" data-entry-id="'+item.id+'">Assign</button>':'<span aria-hidden="true">›</span>'}
+      </div>`;
+    }
+    function departmentCard(group, extra='') {
+      const id=group.department?.id||'unassigned',name=group.department?.name||'Unassigned';
+      return `<section class="card department ${group.department?'':'warning'} ${extra}" id="group-${id}" data-route-group="${id}"><div class="department-head"><div><h2>${esc(name)}</h2>${group.department?'':`<p class="muted small">Assign these Products when you know where they belong.</p>`}</div><span class="pill ${group.department?'':'warning'}">${group.entries.length} left</span></div><div class="department-body">${group.entries.map(item=>entryRow(item)).join('')}</div></section>`;
+    }
+    function acquiredSection() {
+      const acquired=acquiredEntries();
+      return `<details class="card acquired"><summary>Acquired · ${acquired.length}</summary><div class="acquired-list">${acquired.length?acquired.map(item=>entryRow(item)).join(''):'<p class="muted small">Checked Products collect here.</p>'}</div></details>`;
+    }
+    function finishCard() {
+      const remaining=remainingEntries().length;
+      return `<section class="card finish-card"><h2>${remaining?'Ready to wrap up?':'Everything acquired'}</h2><p class="muted small">Review acquired and unpurchased Products before completing this Trip.</p><button type="button" class="button primary" data-action="open-finish">Finish Trip</button></section>`;
+    }
+    function stateInspector() {
+      const visible={ variant:`${state.variant} — ${variantNames[state.variant]}`,screen:state.screen,store:state.data.store,departments:state.data.departments.map((item,index)=>({...item,position:index+1,assignedProducts:assignedCount(item.id)})),unassignedStoreProducts:state.data.storeProducts.filter(item=>!item.departmentId).map(item=>product(item.productId)?.name),trip:state.data.trip };
+      return `<details class="card state state-panel"><summary>Inspect prototype state</summary><pre>${esc(JSON.stringify(visible,null,2))}</pre></details>`;
+    }
+    function tripScreen() {
+      const preview=plannedEntriesOrdered().filter(item=>!item.acquired).slice(0,6);
+      return `${header()}<main class="shell"><div class="hero"><p class="eyebrow">Planned Trip</p><h1>${esc(state.data.trip.name)}</h1><p class="muted">See what is already planned before switching into your personal shopping view.</p></div><div class="trip-first"><section class="card trip-summary"><div class="screen-title"><div><h2>${esc(state.data.store.label)}</h2><span class="pill">Shared Planned Trip</span></div><span class="pill success">${state.data.trip.entries.length} Products</span></div><div class="preview-list">${preview.map(item=>`<div class="preview-row"><div><strong>${esc(product(item.productId).name)}</strong><div class="muted small">${item.amount} ${esc(item.unit)} · ${esc(department(storeProduct(item.productId)?.departmentId)?.name||'Unassigned')}</div></div><span>›</span></div>`).join('')}</div></section><section class="card trip-summary"><h2>Ready to shop?</h2><p class="muted">The checklist follows ${esc(state.data.store.label)}’s Department order. Entering does not change the shared Trip state.</p><div class="trip-actions"><button type="button" class="button primary" data-action="start-shopping">Shop this Trip</button><button type="button" class="button" data-action="open-add">Add Products</button></div>${progressBlock()}</section></div>${stateInspector()}</main>${overlays()}`;
+    }
+    function shopHeader() {
+      return `<div class="shop-header"><div class="shop-headline"><div><p class="eyebrow">${esc(state.data.store.label)}</p><h2>${esc(state.data.trip.name)}</h2></div><div class="top-actions"><button type="button" class="button icon" data-action="back-trip" aria-label="Back to Trip">←</button><button type="button" class="button primary" data-action="open-add">＋ Add</button></div></div>${progressBlock()}</div>`;
+    }
+    function variantA(groups) { return `<div class="variant-a"><div class="route">${groups.map(group=>departmentCard(group)).join('')}</div></div>`; }
+    function variantB(groups) {
+      const nav=groups.map(group=>`<button type="button" data-action="jump-group" data-group-id="${group.department?.id||'unassigned'}">${esc(group.department?.name||'Unassigned')} · ${group.entries.length}</button>`).join('');
+      return `<div class="variant-b"><nav class="navigator" aria-label="Department route">${nav}</nav><div class="route">${groups.map(group=>departmentCard(group)).join('')}</div></div>`;
+    }
+    function variantC(groups) {
+      if (!groups.length) return '<div class="variant-c"><section class="card next-stop"><h2>Route complete</h2><p class="muted">All Trip Entries have been acquired.</p></section></div>';
+      const [first,...rest]=groups;
+      const id=first.department?.id||'unassigned';
+      return `<div class="variant-c"><section class="card next-stop" id="group-${id}" data-route-group="${id}"><p class="eyebrow">Next stop</p><h1>${esc(first.department?.name||'Unassigned')}</h1><p class="muted">${first.entries.length} remaining here</p>${first.entries.map(item=>entryRow(item)).join('')}</section><div class="upcoming"><div><p class="eyebrow">Coming up</p><h2>Rest of the route</h2></div>${rest.map(group=>departmentCard(group)).join('')||'<p class="muted">This is the final stop.</p>'}</div></div>`;
+    }
+    function shopScreen() {
+      const groups=routeGroups();
+      const body=state.variant==='A'?variantA(groups):state.variant==='B'?variantB(groups):variantC(groups);
+      return `${header()}<main class="shell">${shopHeader()}${body}<div class="route-footer">${acquiredSection()}${finishCard()}${stateInspector()}</div></main>${overlays()}`;
+    }
+    function settingsScreen() {
+      const unassigned=state.data.storeProducts.filter(item=>!item.departmentId).length;
+      return `${header()}<main class="shell"><div class="screen-title"><div><p class="eyebrow">Store settings</p><h1>${esc(state.data.store.label)} route</h1><p class="muted">Every Household Member can maintain this shared Department sequence.</p></div><button type="button" class="button" data-action="close-settings">Done</button></div><div class="settings-grid"><section class="card settings-list">${state.data.departments.map((item,index)=>`<div class="dept-edit-row" draggable="true" data-department-row="${item.id}"><button type="button" class="drag-handle" draggable="true" data-drag-department="${item.id}" aria-label="Drag ${esc(item.name)}">⠿</button><input class="dept-name" value="${esc(item.name)}" data-change="department-name" data-department-id="${item.id}" aria-label="Department name"><div class="move-controls"><button type="button" data-action="move-department" data-direction="up" data-department-id="${item.id}" aria-label="Move ${esc(item.name)} up" ${index===0?'disabled':''}>↑</button><button type="button" data-action="move-department" data-direction="down" data-department-id="${item.id}" aria-label="Move ${esc(item.name)} down" ${index===state.data.departments.length-1?'disabled':''}>↓</button></div><div class="dept-sub"><span>Position ${index+1} · ${assignedCount(item.id)} assigned Products</span><button type="button" class="button danger" data-action="remove-department" data-department-id="${item.id}">Remove</button></div></div>`).join('')}</section><aside><form class="card add-dept" id="add-department"><div><h2>Add Department</h2><p class="muted small">New Departments append to the route.</p></div><div class="field"><label for="department-name">Name</label><input id="department-name" name="departmentName" autocomplete="off" required></div>${state.settingsError?`<p class="error">${esc(state.settingsError)}</p>`:''}<button type="submit" class="button primary">Add to route</button><div class="pill warning">${unassigned} Unassigned Store Product${unassigned===1?'':'s'}</div></form></aside></div>${stateInspector()}</main>`;
+    }
+    function searchResults() {
+      const q=normalize(state.query);
+      const matches=state.data.products.filter(item=>!q||normalize(item.name).includes(q));
+      const store=matches.filter(item=>storeProduct(item.id));
+      const household=matches.filter(item=>!storeProduct(item.id));
+      const renderResult=(item,fallback=false)=>{ const existing=entryForProduct(item.id); return `<div class="result"><div><strong>${esc(item.name)}</strong><div class="entry-meta"><span>${fallback?'Elsewhere in household':esc(department(storeProduct(item.id)?.departmentId)?.name||'Unassigned')}</span>${item.note?`<span>· ${esc(item.note)}</span>`:''}</div></div><button type="button" class="button ${existing?'':'primary'}" data-action="add-product" data-product-id="${item.id}">${existing?'On Trip':fallback?'Add to Store':'Add'}</button></div>`; };
+      const exact=state.data.products.some(item=>normalize(item.name)===q);
+      return `${store.length?`<div><p class="eyebrow">At this Store</p><div class="results">${store.map(item=>renderResult(item)).join('')}</div></div>`:''}${household.length?`<div><p class="eyebrow">Elsewhere in household</p><div class="results">${household.map(item=>renderResult(item,true)).join('')}</div></div>`:''}${q&&!exact?`<button type="button" class="button primary" data-action="create-product">Create “${esc(state.query.trim())}”</button>`:''}${!matches.length&&!q?'<p class="muted">Search the Store Catalog or type a new Product name.</p>':''}`;
+    }
+    function addOverlay() {
+      if (!state.addOpen) return '';
+      return `<div class="overlay" role="dialog" aria-modal="true" aria-label="Add Products"><section class="sheet"><div class="search-wrap"><input class="search" data-role="search" type="search" placeholder="Search or add a Product" value="${esc(state.query)}" aria-label="Search or add a Product"><button type="button" class="button icon" data-action="close-add" aria-label="Close">×</button></div><div class="screen-title"><div><p class="eyebrow">Add Products</p><h2>Store first, household second</h2></div><span class="pill success">${state.data.trip.entries.length} on Trip</span></div><div class="results">${searchResults()}</div></section></div>`;
+    }
+    function editorOverlay() {
+      if (!state.editingEntryId) return '';
+      const item=entry(state.editingEntryId); if (!item) return '';
+      const p=product(item.productId),sp=storeProduct(item.productId);
+      return `<div class="overlay" role="dialog" aria-modal="true" aria-label="Edit Trip Entry"><section class="sheet"><div class="sheet-head"><div><p class="eyebrow">Edit Trip Entry</p><h2>${esc(p.name)}</h2></div><button type="button" class="button icon" data-action="close-editor" aria-label="Close">×</button></div><div class="editor-grid"><div class="field"><label>Amount</label><input type="number" min="0.01" step="0.01" value="${item.amount}" data-change="amount" data-entry-id="${item.id}"></div><div class="field"><label>Unit</label><select data-change="unit" data-entry-id="${item.id}">${units.map(unit=>`<option ${unit===item.unit?'selected':''}>${unit}</option>`).join('')}</select></div><div class="field wide"><label>Department at this Store</label><select data-change="entry-department" data-entry-id="${item.id}"><option value="">Unassigned</option>${state.data.departments.map(dept=>`<option value="${dept.id}" ${dept.id===sp?.departmentId?'selected':''}>${esc(dept.name)}</option>`).join('')}</select></div><div class="field wide"><label>Product note — used everywhere</label><textarea data-change="note" data-entry-id="${item.id}">${esc(p.note)}</textarea><span class="muted small">Changing a non-empty note asks for confirmation because Completed Trips also update.</span></div></div></section></div>`;
+    }
+    function finishOverlay() {
+      if (!state.finishOpen) return '';
+      const acquired=acquiredEntries(),remaining=remainingEntries();
+      return `<div class="overlay" role="dialog" aria-modal="true" aria-label="Finish Trip"><section class="sheet"><div class="sheet-head"><div><p class="eyebrow">Finish Trip</p><h2>Review ${esc(state.data.trip.name)}</h2></div><button type="button" class="button icon" data-action="close-finish" aria-label="Close">×</button></div><p class="muted">Completion remains explicit. Unpurchased Products are preselected to carry forward.</p><div class="review-section"><h3>Acquired · ${acquired.length}</h3>${acquired.map(item=>`<div class="review-row"><span>✓</span><span>${esc(product(item.productId).name)}</span></div>`).join('')||'<p class="muted small">Nothing acquired yet.</p>'}</div><div class="review-section"><h3>Unpurchased · ${remaining.length}</h3>${remaining.map(item=>`<label class="review-row"><input type="checkbox" data-change="carry-forward" data-entry-id="${item.id}" ${state.carryForward.has(item.id)?'checked':''}><span>Copy ${esc(product(item.productId).name)}</span></label>`).join('')||'<p class="muted small">No Products to carry forward.</p>'}</div>${remaining.length?`<div class="editor-grid review-section"><div class="field wide"><label>Destination</label><select data-change="destination"><option value="existing" ${state.destination==='existing'?'selected':''}>Existing Trip · Next Costco run</option><option value="new" ${state.destination==='new'?'selected':''}>New Trip</option></select></div>${state.destination==='new'?'<div class="field wide"><label>New Trip name</label><input value="Costco follow-up · Oct 7"></div>':''}</div>`:''}<button type="button" class="button primary" data-action="complete-preview">Complete Trip</button></section></div>`;
+    }
+    function overlays() { return addOverlay()+editorOverlay()+finishOverlay(); }
+    function render() {
+      document.querySelector('#app').innerHTML=state.screen==='trip'?tripScreen():state.screen==='settings'?settingsScreen():shopScreen();
+      document.querySelector('#variant-label').textContent=`${state.variant} (${variantNames[state.variant]})`;
+      renderToast();
+      if (state.resumePending&&state.screen==='shop') { state.resumePending=false; requestAnimationFrame(()=>document.querySelector('[data-route-group]')?.scrollIntoView({behavior:'smooth',block:'start'})); }
+    }
+    function showToast(message,action='') { state.toast={message,action}; renderToast(); clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>{state.toast=null;renderToast();},4200); }
+    function renderToast() { document.querySelector('#toast').innerHTML=state.toast?`<div class="toast"><span>${esc(state.toast.message)}</span>${state.toast.action?`<button type="button" data-action="${state.toast.action}">Undo</button>`:''}</div>`:''; }
+    function setVariant(next) { const values=['A','B','C'],current=values.indexOf(state.variant); state.variant=next==='previous'?values[(current+2)%3]:next==='next'?values[(current+1)%3]:next; const params=new URLSearchParams(location.search); params.set('variant',state.variant); history.replaceState({},'',`${location.pathname}?${params}`); render(); }
+    function addProduct(productId) {
+      const existing=entryForProduct(productId);
+      if (existing) { state.addOpen=false; state.editingEntryId=existing.id; render(); showToast(`${product(productId).name} is already on this Trip`); return; }
+      if (!storeProduct(productId)) state.data.storeProducts.push({productId,departmentId:null,score:1});
+      state.data.trip.entries.push({id:`e-${slug()}`,productId,amount:1,unit:'each',acquired:false});
+      state.query=''; render(); requestAnimationFrame(()=>document.querySelector('[data-role="search"]')?.focus()); showToast(`${product(productId).name} added · 1 each`);
+    }
+    function createProduct() { const name=state.query.trim().replace(/\s+/g,' '); if (!name) return; const exact=state.data.products.find(item=>normalize(item.name)===normalize(name)); if (exact) return addProduct(exact.id); const item={id:`p-${slug()}`,name,note:''}; state.data.products.push(item); state.data.storeProducts.push({productId:item.id,departmentId:null,score:1}); addProduct(item.id); state.addOpen=false; state.editingEntryId=entryForProduct(item.id)?.id||null; render(); }
+    function toggleAcquired(entryId) { const item=entry(entryId); if (!item) return; item.acquired=!item.acquired; render(); showToast(item.acquired?`${product(item.productId).name} acquired`:`${product(item.productId).name} returned to the route`); }
+    function moveDepartment(id,direction) { const list=state.data.departments,index=list.findIndex(item=>item.id===id),next=direction==='up'?index-1:index+1; if (index<0||next<0||next>=list.length) return; [list[index],list[next]]=[list[next],list[index]]; render(); showToast('Store route updated'); }
+    function reorderDepartment(sourceId,targetId) { if (!sourceId||sourceId===targetId) return; const list=state.data.departments,source=list.findIndex(item=>item.id===sourceId),target=list.findIndex(item=>item.id===targetId); const [moved]=list.splice(source,1); list.splice(target,0,moved); state.draggedDepartmentId=null; render(); showToast('Store route updated'); }
+    function removeDepartment(id) { const dept=department(id),count=assignedCount(id); if (!dept) return; if (!confirm(`Remove ${dept.name}? ${count} assigned Store Product${count===1?'':'s'} will become Unassigned.`)) return; state.data.storeProducts.forEach(item=>{if(item.departmentId===id)item.departmentId=null;}); state.data.departments=state.data.departments.filter(item=>item.id!==id); render(); showToast(`${dept.name} removed · ${count} moved to Unassigned`); }
+    function saveField(target) {
+      if (target.dataset.change==='department-name') { const dept=department(target.dataset.departmentId),next=target.value.trim().replace(/\s+/g,' '); if (!next) { render();return; } const duplicate=state.data.departments.some(item=>item.id!==dept.id&&normalize(item.name)===normalize(next)); if (duplicate) { state.settingsError=`A Department named “${next}” already exists.`; render();return; } dept.name=next; state.settingsError=''; render(); showToast('Department renamed'); return; }
+      if (target.dataset.change==='destination') { state.destination=target.value; render(); return; }
+      if (target.dataset.change==='carry-forward') { target.checked?state.carryForward.add(target.dataset.entryId):state.carryForward.delete(target.dataset.entryId); return; }
+      const item=entry(target.dataset.entryId); if (!item) return;
+      if (target.dataset.change==='amount') item.amount=Math.max(.01,Number(target.value)||1);
+      if (target.dataset.change==='unit') item.unit=target.value;
+      if (target.dataset.change==='entry-department') storeProduct(item.productId).departmentId=target.value||null;
+      if (target.dataset.change==='note') { const p=product(item.productId),next=target.value.trim(); if (p.note&&p.note!==next&&!confirm('This Product note is used everywhere, including Completed Trips. Change it for the whole household?')) { render();return; } p.note=next; }
+      render(); showToast('Saved just now');
+    }
+    document.addEventListener('submit',event=>{ if (event.target.id!=='add-department') return; event.preventDefault(); const input=new FormData(event.target).get('departmentName'),name=String(input).trim().replace(/\s+/g,' '); if (state.data.departments.some(item=>normalize(item.name)===normalize(name))) { state.settingsError=`A Department named “${name}” already exists.`;render();return; } const item={id:`d-${slug()}`,name}; state.data.departments.push(item); state.settingsError='';render();requestAnimationFrame(()=>document.querySelector(`[data-department-id="${item.id}"]`)?.focus());showToast(`${name} added at the end`); });
+    document.addEventListener('input',event=>{ if (event.target.matches('[data-role="search"]')) { const position=event.target.selectionStart;state.query=event.target.value;render();const field=document.querySelector('[data-role="search"]');field?.focus();field?.setSelectionRange(position,position); } if (event.target.dataset.change==='amount') { const item=entry(event.target.dataset.entryId);if(item)item.amount=Math.max(.01,Number(event.target.value)||1); } if (event.target.dataset.change==='department-name') { const dept=department(event.target.dataset.departmentId),next=event.target.value.trim().replace(/\s+/g,' ');const duplicate=state.data.departments.some(item=>item.id!==dept.id&&normalize(item.name)===normalize(next));if(next&&!duplicate){dept.name=next;state.settingsError='';} } });
+    document.addEventListener('change',event=>{ if(event.target.dataset.change)saveField(event.target); });
+    document.addEventListener('click',event=>{ const target=event.target.closest('[data-action]');if(!target)return;const action=target.dataset.action;
+      if(action==='previous-variant')setVariant('previous'); if(action==='next-variant')setVariant('next');
+      if(action==='start-shopping'){state.screen='shop';state.resumePending=true;render();}
+      if(action==='back-trip'){state.screen='trip';render();}
+      if(action==='open-settings'){state.screen='settings';render();}
+      if(action==='close-settings'){state.screen='trip';render();}
+      if(action==='open-add'){state.addOpen=true;state.query='';render();requestAnimationFrame(()=>document.querySelector('[data-role="search"]')?.focus());}
+      if(action==='close-add'){state.addOpen=false;state.query='';render();}
+      if(action==='add-product')addProduct(target.dataset.productId);
+      if(action==='create-product')createProduct();
+      if(action==='toggle-acquired')toggleAcquired(target.dataset.entryId);
+      if(action==='open-editor'||action==='quick-assign'){state.editingEntryId=target.dataset.entryId;render();}
+      if(action==='close-editor'){state.editingEntryId=null;render();}
+      if(action==='jump-group')document.querySelector(`#group-${target.dataset.groupId}`)?.scrollIntoView({behavior:'smooth',block:'start'});
+      if(action==='move-department')moveDepartment(target.dataset.departmentId,target.dataset.direction);
+      if(action==='remove-department')removeDepartment(target.dataset.departmentId);
+      if(action==='open-finish'){state.finishOpen=true;state.carryForward=new Set(remainingEntries().map(item=>item.id));render();}
+      if(action==='close-finish'){state.finishOpen=false;render();}
+      if(action==='complete-preview'){state.completedPreview=true;state.finishOpen=false;render();showToast(`Prototype: Trip completed · ${state.carryForward.size} copied forward`);}
+    });
+    document.addEventListener('dragstart',event=>{ const handle=event.target.closest('[data-drag-department]');if(!handle)return;state.draggedDepartmentId=handle.dataset.dragDepartment;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',state.draggedDepartmentId);handle.closest('[data-department-row]')?.classList.add('dragging'); });
+    document.addEventListener('dragend',event=>{event.target.closest('[data-department-row]')?.classList.remove('dragging');state.draggedDepartmentId=null;});
+    document.addEventListener('dragover',event=>{if(event.target.closest('[data-department-row]'))event.preventDefault();});
+    document.addEventListener('drop',event=>{const row=event.target.closest('[data-department-row]');if(!row)return;event.preventDefault();reorderDepartment(state.draggedDepartmentId||event.dataTransfer.getData('text/plain'),row.dataset.departmentRow);});
+    document.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;if(event.target.matches('input,textarea,select,[contenteditable]'))return;event.preventDefault();setVariant(event.key==='ArrowLeft'?'previous':'next');});
+    window.addEventListener('popstate',()=>{state.variant=getVariant();render();});
+    render();
+  </script>
+</body>
+</html>
