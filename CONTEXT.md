@@ -57,3 +57,9 @@ _Avoid_: Archived list, past list
 **Trip Entry**:
 The unique association between one Trip and one Product, recording whether it was acquired and a positive decimal amount with a predefined unit.
 _Avoid_: List item, cart item
+
+## Collaboration
+
+**Sync Issue**:
+A member-specific preserved shopping action that could not automatically join the Household's shared state and requires that member's decision.
+_Avoid_: Conflict, synchronization error, queue item
