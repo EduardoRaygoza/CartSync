@@ -1,0 +1,11 @@
+<main>
+  <header><div><span class="eyebrow">CartSync architecture spike</span><h1>Costco Saturday</h1></div><span class="status" [attr.data-status]="sync.status()">{{ sync.status() }}</span></header>
+  <section class="progress"><strong>{{ remaining() }}</strong> remaining · {{ sync.inspector().pending.length }} pending operations</section>
+  <section class="route" aria-label="Shopping route">
+    @for (entry of sync.inspector().entries; track entry.id) {
+      <button class="entry" [class.acquired]="entry.acquired" (click)="toggle(entry)"><span class="checkbox" aria-hidden="true">{{ entry.acquired ? '✓' : '' }}</span><span><strong>{{ entry.name }}</strong><small>{{ entry.department }} · {{ entry.amount }} {{ entry.unit }}</small></span></button>
+    }
+  </section>
+  <button class="upload" (click)="upload()">Run uploader</button>
+  <details open><summary>Prototype state inspector</summary><dl><dt>Engine</dt><dd>{{ sync.inspector().engine }}</dd><dt>Durable storage</dt><dd>{{ sync.inspector().durable }}</dd><dt>Checkpoint</dt><dd>{{ sync.inspector().checkpoint }}</dd><dt>Uploader lease</dt><dd>{{ sync.inspector().leaseOwner ?? 'none' }}</dd><dt>Last local commit</dt><dd>{{ sync.inspector().lastCommitMs.toFixed(1) }} ms</dd></dl><pre id="state-inspector">{{ sync.inspector() | json }}</pre></details>
+</main>

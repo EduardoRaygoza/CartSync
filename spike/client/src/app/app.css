@@ -1,0 +1,17 @@
+:host { color: #13231b; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+main { width: min(100% - 2rem, 44rem); margin: 0 auto; padding: 2rem 0 5rem; }
+header { align-items: center; display: flex; justify-content: space-between; gap: 1rem; }
+h1 { font-size: clamp(1.6rem, 6vw, 2.6rem); letter-spacing: -.04em; margin: .25rem 0; }
+.eyebrow { color: #527060; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.status { background: #dff5e8; border-radius: 999px; color: #17633b; font-size: .8rem; font-weight: 800; padding: .55rem .8rem; }
+.status[data-status='Offline'], .status[data-status='Needs attention'] { background: #fff0d8; color: #86500c; }
+.progress { background: #173f2c; border-radius: 1.1rem; color: white; margin: 1.4rem 0; padding: 1rem 1.2rem; }
+.route { display: grid; gap: .7rem; }
+.entry { align-items: center; background: white; border: 1px solid #d8e4dc; border-radius: 1rem; color: inherit; cursor: pointer; display: flex; gap: .9rem; padding: 1rem; text-align: left; width: 100%; }
+.entry:hover { border-color: #4d8d68; }.entry.acquired { opacity: .55; }.entry.acquired strong { text-decoration: line-through; }
+.checkbox { align-items: center; border: 2px solid #7b9787; border-radius: .45rem; display: flex; flex: 0 0 1.6rem; height: 1.6rem; justify-content: center; }
+.entry small { color: #688073; display: block; margin-top: .25rem; }
+.upload { background: #e7f0ea; border: 0; border-radius: .8rem; cursor: pointer; font-weight: 800; margin: 1rem 0; padding: .8rem 1rem; }
+details { border-top: 1px solid #d8e4dc; margin-top: 1.5rem; padding-top: 1rem; } summary { cursor: pointer; font-weight: 800; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; } dt { color: #61766a; } dd { margin: 0; font-weight: 700; }
+pre { background: #0f1f17; border-radius: .8rem; color: #d8f8e6; max-height: 19rem; overflow: auto; padding: 1rem; white-space: pre-wrap; }
