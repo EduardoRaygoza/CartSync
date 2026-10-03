@@ -1,0 +1,836 @@
+openapi: 3.1.0
+info:
+  title: CartSync API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >-
+    Versioned synchronization and connectivity-required Household commands for
+    the CartSync MVP. Checkpoint pulls are authoritative; SSE events are hints.
+servers:
+  - url: https://api.cartsync.example/api/v1
+    description: Placeholder production origin
+security:
+  - bearerAuth: []
+tags:
+  - name: Synchronization
+    description: Local-first operation upload, bootstrap, pull, and event hints.
+  - name: History
+    description: Online access to Completed Trips outside the automatic window.
+  - name: Household
+    description: Connectivity-required Household administration commands.
+paths:
+  /sync/operations:
+    post:
+      tags: [Synchronization]
+      operationId: submitOperations
+      summary: Submit ordered local operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperationBatchRequest'
+      responses:
+        '200':
+          description: Every operation has an independent outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationBatchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /sync/bootstrap:
+    get:
+      tags: [Synchronization]
+      operationId: getBootstrapPage
+      summary: Page the authorized automatic synchronization scope
+      parameters:
+        - $ref: '#/components/parameters/PageToken'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: >-
+            A bootstrap page. The final page includes a terminal Household
+            cursor and marks the scope as available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /sync/changes:
+    get:
+      tags: [Synchronization]
+      operationId: getChanges
+      summary: Pull canonical changes after a Household cursor
+      parameters:
+        - name: after
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Canonical deltas and the next cursor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePage'
+        '409':
+          description: The cursor is no longer retained; bootstrap is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /sync/events:
+    get:
+      tags: [Synchronization]
+      operationId: streamSyncEvents
+      summary: Receive checkpoint and affected-scope hints
+      responses:
+        '200':
+          description: >-
+            Server-sent events. Each `checkpoint` event contains a JSON
+            CheckpointEvent. Clients must pull `/sync/changes` to obtain data.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /completed-trips:
+    get:
+      tags: [History]
+      operationId: getOlderCompletedTrips
+      summary: Page Completed Trips outside the automatic 90-day window
+      parameters:
+        - name: completedBefore
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageToken'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Session-only older history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletedTripPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /household/invitations:
+    post:
+      tags: [Household]
+      operationId: createHouseholdInvitation
+      summary: Invite an email address to the current Household
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: Invitation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdInvitation'
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /household/invitations/{invitationId}:
+    delete:
+      tags: [Household]
+      operationId: revokeHouseholdInvitation
+      summary: Revoke a Household Invitation
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        '204':
+          description: Invitation revoked or already inactive.
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /household/invitations/{invitationId}/resend:
+    post:
+      tags: [Household]
+      operationId: resendHouseholdInvitation
+      summary: Resend and refresh an active Household Invitation
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        '200':
+          description: Invitation delivery restarted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdInvitation'
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /household/members/{memberId}/remove:
+    post:
+      tags: [Household]
+      operationId: removeHouseholdMember
+      summary: Remove a member and revoke future Household access
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '202':
+          description: Removal accepted; cached-data purge follows security policy.
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /household/ownership-transfers:
+    post:
+      tags: [Household]
+      operationId: createOwnershipTransfer
+      summary: Offer Household ownership to another member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOwnershipTransferRequest'
+      responses:
+        '201':
+          description: Ownership transfer awaits recipient acceptance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnershipTransfer'
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /household/ownership-transfers/{transferId}/accept:
+    post:
+      tags: [Household]
+      operationId: acceptOwnershipTransfer
+      summary: Accept a pending ownership transfer
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UuidV7'
+      responses:
+        '204':
+          description: Ownership transferred; the former owner remains a member.
+        '409':
+          description: Transfer is expired, revoked, or addressed to another member.
+  /household:
+    delete:
+      tags: [Household]
+      operationId: deleteHousehold
+      summary: Begin owner-authorized Household deletion
+      responses:
+        '202':
+          description: Deletion accepted under the configured retention policy.
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PageToken:
+      name: pageToken
+      in: query
+      required: false
+      schema:
+        type: [string, 'null']
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 200
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV7'
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV7'
+  responses:
+    Unauthorized:
+      description: Authentication is missing, invalid, or expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: The account is not authorized for the current Household.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    OwnerRequired:
+      description: The current member is not the Household Owner.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    UuidV4:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    UuidV7:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    OperationBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [operations]
+      properties:
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/OperationEnvelope'
+    OperationEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - operationId
+        - operationVersion
+        - installationId
+        - deviceSequence
+        - lastAppliedHouseholdCursor
+        - kind
+        - payload
+      properties:
+        operationId:
+          $ref: '#/components/schemas/UuidV4'
+        operationVersion:
+          type: integer
+          minimum: 1
+        installationId:
+          $ref: '#/components/schemas/UuidV4'
+        deviceSequence:
+          type: integer
+          format: int64
+          minimum: 1
+        lastAppliedHouseholdCursor:
+          type: integer
+          format: int64
+          minimum: 0
+        kind:
+          $ref: '#/components/schemas/OperationKind'
+        payload:
+          description: Payload schema must match `kind`.
+          oneOf:
+            - $ref: '#/components/schemas/NamedEntityPayload'
+            - $ref: '#/components/schemas/EntityIdPayload'
+            - $ref: '#/components/schemas/ProductNotePayload'
+            - $ref: '#/components/schemas/StoreProductPlacementPayload'
+            - $ref: '#/components/schemas/DepartmentMovePayload'
+            - $ref: '#/components/schemas/TripCreatePayload'
+            - $ref: '#/components/schemas/CarryForwardPayload'
+            - $ref: '#/components/schemas/TripEntryAddPayload'
+            - $ref: '#/components/schemas/TripEntryPatchPayload'
+            - $ref: '#/components/schemas/TripEntryAcquiredPayload'
+            - $ref: '#/components/schemas/CompletedTripCorrectionPayload'
+            - $ref: '#/components/schemas/SyncIssueResolutionPayload'
+    OperationKind:
+      type: string
+      enum:
+        - store.create
+        - store.rename
+        - store.archive
+        - store.restore
+        - product.create
+        - product.rename
+        - product.archive
+        - product.restore
+        - product.note.set
+        - store_product.place
+        - store_product.remove
+        - department.create
+        - department.rename
+        - department.move
+        - department.remove
+        - trip.create
+        - trip.rename
+        - trip.discard
+        - trip.complete
+        - trip.carry_forward
+        - trip_entry.add
+        - trip_entry.update
+        - trip_entry.remove
+        - trip_entry.set_acquired
+        - completed_trip.correct_entry
+        - sync_issue.resolve
+    NamedEntityPayload:
+      type: object
+      additionalProperties: false
+      required: [entityId, name]
+      properties:
+        entityId:
+          $ref: '#/components/schemas/UuidV7'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+    EntityIdPayload:
+      type: object
+      additionalProperties: false
+      required: [entityId]
+      properties:
+        entityId:
+          $ref: '#/components/schemas/UuidV7'
+    ProductNotePayload:
+      type: object
+      additionalProperties: false
+      required: [productId, note]
+      properties:
+        productId:
+          $ref: '#/components/schemas/UuidV7'
+        note:
+          type: string
+          maxLength: 1000
+    StoreProductPlacementPayload:
+      type: object
+      additionalProperties: false
+      required: [storeId, productId]
+      properties:
+        storeId:
+          $ref: '#/components/schemas/UuidV7'
+        productId:
+          $ref: '#/components/schemas/UuidV7'
+        departmentId:
+          oneOf:
+            - $ref: '#/components/schemas/UuidV7'
+            - type: 'null'
+    DepartmentMovePayload:
+      type: object
+      additionalProperties: false
+      required: [departmentId]
+      properties:
+        departmentId:
+          $ref: '#/components/schemas/UuidV7'
+        beforeDepartmentId:
+          oneOf:
+            - $ref: '#/components/schemas/UuidV7'
+            - type: 'null'
+    TripCreatePayload:
+      type: object
+      additionalProperties: false
+      required: [tripId, storeId, name]
+      properties:
+        tripId:
+          $ref: '#/components/schemas/UuidV7'
+        storeId:
+          $ref: '#/components/schemas/UuidV7'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        plannedFor:
+          type: [string, 'null']
+          format: date
+    CarryForwardPayload:
+      type: object
+      additionalProperties: false
+      required: [sourceTripId, destinationTripId, productIds]
+      properties:
+        sourceTripId:
+          $ref: '#/components/schemas/UuidV7'
+        destinationTripId:
+          $ref: '#/components/schemas/UuidV7'
+        productIds:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UuidV7'
+    TripEntryAddPayload:
+      type: object
+      additionalProperties: false
+      required: [tripId, tripEntryId, productId, amount, unit]
+      properties:
+        tripId:
+          $ref: '#/components/schemas/UuidV7'
+        tripEntryId:
+          $ref: '#/components/schemas/UuidV7'
+        productId:
+          $ref: '#/components/schemas/UuidV7'
+        amount:
+          type: number
+          format: decimal
+          exclusiveMinimum: 0
+        unit:
+          $ref: '#/components/schemas/Unit'
+        departmentId:
+          oneOf:
+            - $ref: '#/components/schemas/UuidV7'
+            - type: 'null'
+    TripEntryPatchPayload:
+      type: object
+      additionalProperties: false
+      required: [tripId, tripEntryId]
+      properties:
+        tripId:
+          $ref: '#/components/schemas/UuidV7'
+        tripEntryId:
+          $ref: '#/components/schemas/UuidV7'
+        amount:
+          type: number
+          format: decimal
+          exclusiveMinimum: 0
+        unit:
+          $ref: '#/components/schemas/Unit'
+        departmentId:
+          oneOf:
+            - $ref: '#/components/schemas/UuidV7'
+            - type: 'null'
+    TripEntryAcquiredPayload:
+      type: object
+      additionalProperties: false
+      required: [tripId, tripEntryId, acquired]
+      properties:
+        tripId:
+          $ref: '#/components/schemas/UuidV7'
+        tripEntryId:
+          $ref: '#/components/schemas/UuidV7'
+        acquired:
+          type: boolean
+    CompletedTripCorrectionPayload:
+      type: object
+      additionalProperties: false
+      required: [tripId, tripEntryId, correction]
+      properties:
+        tripId:
+          $ref: '#/components/schemas/UuidV7'
+        tripEntryId:
+          $ref: '#/components/schemas/UuidV7'
+        correction:
+          $ref: '#/components/schemas/TripEntryPatchPayload'
+    SyncIssueResolutionPayload:
+      type: object
+      additionalProperties: false
+      required: [syncIssueId, action]
+      properties:
+        syncIssueId:
+          $ref: '#/components/schemas/UuidV7'
+        action:
+          type: string
+          enum: [restore, apply_as_new, review, discard]
+        replacementOperation:
+          oneOf:
+            - $ref: '#/components/schemas/OperationEnvelope'
+            - type: 'null'
+    Unit:
+      type: string
+      enum: [each, pack, g, kg, oz, lb, mL, L, 'fl oz', gal]
+    OperationBatchResponse:
+      type: object
+      additionalProperties: false
+      required: [results, nextHouseholdCursor]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationOutcome'
+        nextHouseholdCursor:
+          type: integer
+          format: int64
+          minimum: 0
+    OperationOutcome:
+      type: object
+      additionalProperties: false
+      required: [operationId, status, householdCursor]
+      properties:
+        operationId:
+          $ref: '#/components/schemas/UuidV4'
+        status:
+          type: string
+          enum: [accepted, coalesced, already_applied, needs_attention]
+        householdCursor:
+          type: integer
+          format: int64
+          minimum: 0
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityAlias'
+        syncIssue:
+          oneOf:
+            - $ref: '#/components/schemas/SyncIssueProjection'
+            - type: 'null'
+    BootstrapPage:
+      type: object
+      additionalProperties: false
+      required: [projections, aliases, syncIssues, terminal, nextPageToken]
+      properties:
+        projections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Projection'
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityAlias'
+        syncIssues:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncIssueProjection'
+        terminal:
+          type: boolean
+        terminalHouseholdCursor:
+          type: [integer, 'null']
+          format: int64
+          minimum: 0
+        nextPageToken:
+          type: [string, 'null']
+    ChangePage:
+      type: object
+      additionalProperties: false
+      required: [changes, nextHouseholdCursor, hasMore]
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CanonicalChange'
+        nextHouseholdCursor:
+          type: integer
+          format: int64
+          minimum: 0
+        hasMore:
+          type: boolean
+    CanonicalChange:
+      type: object
+      additionalProperties: false
+      required: [householdCursor, changeKind, entityType, entityId, attribution]
+      properties:
+        householdCursor:
+          type: integer
+          format: int64
+          minimum: 1
+        changeKind:
+          type: string
+          enum: [upsert, tombstone, alias, sync_issue_upsert, sync_issue_resolved]
+        entityType:
+          type: string
+          enum: [store, product, store_product, department, trip, trip_entry, sync_issue]
+        entityId:
+          $ref: '#/components/schemas/UuidV7'
+        projection:
+          oneOf:
+            - $ref: '#/components/schemas/Projection'
+            - type: 'null'
+        tombstone:
+          oneOf:
+            - $ref: '#/components/schemas/Tombstone'
+            - type: 'null'
+        alias:
+          oneOf:
+            - $ref: '#/components/schemas/IdentityAlias'
+            - type: 'null'
+        fieldVersions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldVersion'
+        attribution:
+          $ref: '#/components/schemas/Attribution'
+    Projection:
+      oneOf:
+        - $ref: '#/components/schemas/StoreProjection'
+        - $ref: '#/components/schemas/ProductProjection'
+        - $ref: '#/components/schemas/StoreProductProjection'
+        - $ref: '#/components/schemas/DepartmentProjection'
+        - $ref: '#/components/schemas/TripProjection'
+        - $ref: '#/components/schemas/TripEntryProjection'
+    ProjectionBase:
+      type: object
+      required: [id, householdCursor]
+      properties:
+        id:
+          $ref: '#/components/schemas/UuidV7'
+        householdCursor:
+          type: integer
+          format: int64
+          minimum: 0
+    StoreProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [name, archived]
+          properties:
+            name: { type: string }
+            archived: { type: boolean }
+            address: { type: [string, 'null'] }
+    ProductProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [name, note, archived]
+          properties:
+            name: { type: string }
+            note: { type: string }
+            archived: { type: boolean }
+    StoreProductProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [storeId, productId]
+          properties:
+            storeId: { $ref: '#/components/schemas/UuidV7' }
+            productId: { $ref: '#/components/schemas/UuidV7' }
+            departmentId:
+              oneOf:
+                - $ref: '#/components/schemas/UuidV7'
+                - type: 'null'
+    DepartmentProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [storeId, name, orderKey]
+          properties:
+            storeId: { $ref: '#/components/schemas/UuidV7' }
+            name: { type: string }
+            orderKey: { type: string }
+    TripProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [storeId, name, state]
+          properties:
+            storeId: { $ref: '#/components/schemas/UuidV7' }
+            name: { type: string }
+            state: { type: string, enum: [planned, completed, discarded] }
+            plannedFor: { type: [string, 'null'], format: date }
+            completedAt: { type: [string, 'null'], format: date-time }
+    TripEntryProjection:
+      allOf:
+        - $ref: '#/components/schemas/ProjectionBase'
+        - type: object
+          required: [tripId, productId, amount, unit, acquired]
+          properties:
+            tripId: { $ref: '#/components/schemas/UuidV7' }
+            productId: { $ref: '#/components/schemas/UuidV7' }
+            amount: { type: number, format: decimal, exclusiveMinimum: 0 }
+            unit: { $ref: '#/components/schemas/Unit' }
+            acquired: { type: boolean }
+            departmentId:
+              oneOf:
+                - $ref: '#/components/schemas/UuidV7'
+                - type: 'null'
+            completedProductNameSnapshot: { type: [string, 'null'] }
+            completedDepartmentNameSnapshot: { type: [string, 'null'] }
+    FieldVersion:
+      type: object
+      additionalProperties: false
+      required: [field, baseCursor, installationId, deviceSequence, operationId]
+      properties:
+        field: { type: string }
+        baseCursor: { type: integer, format: int64, minimum: 0 }
+        installationId: { $ref: '#/components/schemas/UuidV4' }
+        deviceSequence: { type: integer, format: int64, minimum: 1 }
+        operationId: { $ref: '#/components/schemas/UuidV4' }
+    IdentityAlias:
+      type: object
+      additionalProperties: false
+      required: [entityType, aliasId, canonicalId]
+      properties:
+        entityType: { type: string }
+        aliasId: { $ref: '#/components/schemas/UuidV7' }
+        canonicalId: { $ref: '#/components/schemas/UuidV7' }
+    Tombstone:
+      type: object
+      additionalProperties: false
+      required: [entityType, entityId, removedAtCursor]
+      properties:
+        entityType: { type: string }
+        entityId: { $ref: '#/components/schemas/UuidV7' }
+        removedAtCursor: { type: integer, format: int64, minimum: 1 }
+    SyncIssueProjection:
+      type: object
+      additionalProperties: false
+      required: [id, operationId, reason, actions, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/UuidV7' }
+        operationId: { $ref: '#/components/schemas/UuidV4' }
+        reason: { type: string }
+        context: { type: object, additionalProperties: true }
+        actions:
+          type: array
+          items: { type: string, enum: [restore, apply_as_new, review, discard] }
+        createdAt: { type: string, format: date-time }
+    Attribution:
+      type: object
+      additionalProperties: false
+      required: [memberId, changedAt]
+      properties:
+        memberId: { $ref: '#/components/schemas/UuidV7' }
+        changedAt: { type: string, format: date-time }
+    CompletedTripPage:
+      type: object
+      additionalProperties: false
+      required: [trips, nextPageToken]
+      properties:
+        trips:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripProjection'
+        nextPageToken: { type: [string, 'null'] }
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    HouseholdInvitation:
+      type: object
+      additionalProperties: false
+      required: [id, email, status, expiresAt]
+      properties:
+        id: { $ref: '#/components/schemas/UuidV7' }
+        email: { type: string, format: email }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        expiresAt: { type: string, format: date-time }
+    CreateOwnershipTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [recipientMemberId]
+      properties:
+        recipientMemberId: { $ref: '#/components/schemas/UuidV7' }
+    OwnershipTransfer:
+      type: object
+      additionalProperties: false
+      required: [id, recipientMemberId, status, expiresAt]
+      properties:
+        id: { $ref: '#/components/schemas/UuidV7' }
+        recipientMemberId: { $ref: '#/components/schemas/UuidV7' }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        expiresAt: { type: string, format: date-time }
+    Problem:
+      type: object
+      additionalProperties: true
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: [string, 'null'] }
+        traceId: { type: [string, 'null'] }

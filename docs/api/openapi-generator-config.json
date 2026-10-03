@@ -1,0 +1,12 @@
+{
+  "generatorName": "typescript-angular",
+  "additionalProperties": {
+    "ngVersion": "22.2.1",
+    "npmName": "@cartsync/api-client",
+    "npmVersion": "1.0.0",
+    "providedInRoot": true,
+    "stringEnums": true,
+    "supportsES6": true,
+    "useSingleRequestParameter": true
+  }
+}
