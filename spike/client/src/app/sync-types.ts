@@ -13,7 +13,7 @@ export interface OperationEnvelope {
 export interface Lease { key: 'uploader'; owner: string; expiresAt: number; }
 
 export interface InspectorState {
-  engine: 'Native IndexedDB'; durable: boolean; entries: TripEntryProjection[];
+  engine: 'Native IndexedDB' | 'RxDB 17 / Dexie'; durable: boolean; entries: TripEntryProjection[];
   pending: OperationEnvelope[]; checkpoint: number; leaseOwner: string | null;
   lastCommitMs: number; messages: string[];
 }

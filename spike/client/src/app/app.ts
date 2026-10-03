@@ -1,6 +1,6 @@
 import { JsonPipe } from '@angular/common';
 import { Component, computed, inject, OnInit } from '@angular/core';
-import { NativeSyncService } from './native-sync.service';
+import { RxdbSyncService } from './rxdb-sync.service';
 import { TripEntryProjection } from './sync-types';
 
 @Component({
@@ -10,7 +10,7 @@ import { TripEntryProjection } from './sync-types';
   templateUrl: './app.html',
 })
 export class App implements OnInit {
-  protected readonly sync = inject(NativeSyncService);
+  protected readonly sync = inject(RxdbSyncService);
   protected readonly remaining = computed(() => this.sync.inspector().entries.filter(entry => !entry.acquired).length);
   ngOnInit(): void { void this.sync.initialize(); }
   toggle(entry: TripEntryProjection): void { void this.sync.setAcquired(entry, !entry.acquired); }

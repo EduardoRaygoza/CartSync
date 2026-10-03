@@ -42,3 +42,24 @@ test('offline relaunch restores the route within three seconds once the shell is
   await expect(page.locator('.entry')).toHaveCount(3);
   expect(Date.now() - started).toBeLessThan(3_000);
 });
+
+test('records repeatable local-commit evidence', async ({ page }) => {
+  const commitSamples: number[] = [];
+  const interactionSamples: number[] = [];
+  for (let index = 0; index < 20; index++) {
+    const started = performance.now();
+    await page.locator('.entry').first().click();
+    await expect(page.locator('.progress')).toContainText(`${index + 1} pending operations`);
+    interactionSamples.push(performance.now() - started);
+    commitSamples.push(Number.parseFloat(await page.locator('dd').last().textContent() ?? '999'));
+  }
+  const summary = { engine: 'rxdb-dexie', interactionMedianMs: percentile(interactionSamples, 50), interactionP95Ms: percentile(interactionSamples, 95), commitMedianMs: percentile(commitSamples, 50), commitP95Ms: percentile(commitSamples, 95) };
+  console.log(`SPIKE_METRICS ${JSON.stringify(summary)}`);
+  expect(summary.interactionP95Ms).toBeLessThan(100);
+  expect(summary.commitP95Ms).toBeLessThan(250);
+});
+
+function percentile(values: number[], requested: number): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return Number(sorted[Math.ceil((requested / 100) * sorted.length) - 1].toFixed(2));
+}

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using CartSync.SyncApi.Domain;
 using FsCheck;
 using FsCheck.Xunit;
@@ -118,6 +119,42 @@ public sealed class CanonicalReducerTests
         var cursor = state.Cursor;
         var second = reducer.Apply(state, Member, operation);
         return first.Outcome == "accepted" && second.Outcome == "already applied" && cursor == state.Cursor;
+    }
+
+    [Fact]
+    public void Large_household_bootstrap_fixture_completes_within_ten_seconds()
+    {
+        var state = new HouseholdState();
+        var reducer = new CanonicalReducer();
+        var members = Enumerable.Range(1, 10).Select(index => Guid.Parse($"10000000-0000-0000-0000-{index:D12}")).ToArray();
+        var stores = Enumerable.Range(1, 25).Select(index => Guid.Parse($"30000000-0000-0000-0000-{index:D12}")).ToArray();
+        var watch = Stopwatch.StartNew();
+        for (var index = 1; index <= 5_000; index++)
+        {
+            var id = Guid.Parse($"50000000-0000-0000-0000-{index:D12}");
+            using var payload = JsonDocument.Parse(JsonSerializer.Serialize(new { productId = id, name = $"Product {index:D5}" }));
+            reducer.Apply(state, members[index % members.Length], new OperationEnvelope(Guid.NewGuid(), 1, DeviceA, index, state.Cursor, "product.create", payload.RootElement.Clone()));
+        }
+        for (var index = 1; index <= 1_000; index++)
+        {
+            var id = Guid.Parse($"40000000-0000-0000-0000-{index:D12}");
+            using var payload = JsonDocument.Parse(JsonSerializer.Serialize(new { tripId = id, storeId = stores[index % stores.Length], name = $"Trip {index:D4}" }));
+            reducer.Apply(state, members[index % members.Length], new OperationEnvelope(Guid.NewGuid(), 1, DeviceB, index, state.Cursor, "trip.create", payload.RootElement.Clone()));
+        }
+        var serialized = JsonSerializer.SerializeToUtf8Bytes(state.Changes);
+        watch.Stop();
+        Assert.Equal(6_000, state.Changes.Count);
+        Assert.True(serialized.Length > 500_000);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"Bootstrap fixture took {watch.Elapsed}.");
+    }
+
+    [Fact]
+    public void Dotnet_normalization_matches_the_shared_browser_fixtures()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "name-normalization.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        foreach (var fixture in document.RootElement.EnumerateArray())
+            Assert.Equal(fixture.GetProperty("normalized").GetString(), CanonicalReducer.NormalizeName(fixture.GetProperty("source").GetString()!));
     }
 
     private static (HouseholdState, CanonicalReducer) Seed()
