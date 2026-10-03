@@ -20,6 +20,10 @@ tags:
     description: Online access to Completed Trips outside the automatic window.
   - name: Household
     description: Connectivity-required Household administration commands.
+  - name: Account
+    description: Account identity, privacy, session, and deletion commands.
+  - name: Security
+    description: Trusted-installation authorization and active incident notices.
 paths:
   /sync/operations:
     post:
@@ -91,6 +95,10 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /sync/events:
     get:
       tags: [Synchronization]
@@ -107,6 +115,8 @@ paths:
                 type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /completed-trips:
     get:
       tags: [History]
@@ -130,6 +140,8 @@ paths:
                 $ref: '#/components/schemas/CompletedTripPage'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /household/invitations:
     post:
       tags: [Household]
@@ -178,6 +190,56 @@ paths:
                 $ref: '#/components/schemas/HouseholdInvitation'
         '403':
           $ref: '#/components/responses/OwnerRequired'
+  /household/invitations/accept:
+    post:
+      tags: [Household]
+      operationId: acceptHouseholdInvitation
+      summary: Accept an Invitation using its single-use secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '200':
+          description: Membership created and the raw target email removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdMembership'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: >-
+            Invitation is invalid or inactive, its verified email does not
+            match, or the Account already belongs to a Household.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /household/membership:
+    patch:
+      tags: [Household]
+      operationId: updateCurrentMemberAlias
+      summary: Change the current member's Household alias
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberAliasRequest'
+      responses:
+        '200':
+          description: Alias changed across visible attribution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdMembership'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: The normalized alias is already reserved.
   /household/members/{memberId}/remove:
     post:
       tags: [Household]
@@ -234,8 +296,218 @@ paths:
       responses:
         '202':
           description: Deletion accepted under the configured retention policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletionStatus'
         '403':
           $ref: '#/components/responses/OwnerRequired'
+        '428':
+          $ref: '#/components/responses/FreshAuthenticationRequired'
+  /household/deletion/restore:
+    post:
+      tags: [Household]
+      operationId: restoreHousehold
+      summary: Restore the former Owner's quarantined Household
+      responses:
+        '200':
+          description: Memberships restored; sessions and Invitations stay revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '428':
+          $ref: '#/components/responses/FreshAuthenticationRequired'
+        '409':
+          description: No restorable Household exists or quarantine has expired.
+  /household/export:
+    get:
+      tags: [Household]
+      operationId: exportHouseholdData
+      summary: Stream the Owner's shared Household data export
+      responses:
+        '200':
+          description: Direct JSON export; no server-side export file is retained.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdExport'
+        '403':
+          $ref: '#/components/responses/OwnerRequired'
+  /account/installations/lease:
+    post:
+      tags: [Security]
+      operationId: issueTrustedInstallationLease
+      summary: Issue or renew a Trusted Device's offline authorization lease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallationLeaseRequest'
+      responses:
+        '200':
+          description: Signed rolling 30-day lease after membership validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationLease'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /account/policy-acceptances:
+    post:
+      tags: [Account]
+      operationId: acceptPolicies
+      summary: Record terms, privacy, and adult-attestation acceptance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyAcceptanceRequest'
+      responses:
+        '204':
+          description: Policy versions accepted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /account/sessions/revoke-all:
+    post:
+      tags: [Account]
+      operationId: revokeAllSessions
+      summary: Revoke all online sessions and future lease renewal
+      responses:
+        '200':
+          description: All sessions revoked; disconnected leases expire naturally.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRevocation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /account/export:
+    get:
+      tags: [Account]
+      operationId: exportAccountData
+      summary: Stream the current Account's privacy export
+      responses:
+        '200':
+          description: Direct JSON export; no server-side export file is retained.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountExport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /account:
+    delete:
+      tags: [Account]
+      operationId: deleteAccount
+      summary: Begin the current Account's deletion quarantine
+      responses:
+        '202':
+          description: Access revoked and 30-day deletion quarantine started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletionStatus'
+        '428':
+          $ref: '#/components/responses/FreshAuthenticationRequired'
+        '409':
+          description: A Household Owner must transfer ownership or delete it first.
+  /account/deletion/restore:
+    post:
+      tags: [Account]
+      operationId: restoreAccount
+      summary: Restore the current Account during deletion quarantine
+      responses:
+        '200':
+          description: Account restored; membership returns unless revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletionStatus'
+        '428':
+          $ref: '#/components/responses/FreshAuthenticationRequired'
+        '409':
+          description: The Account is not recoverable or quarantine has expired.
+  /account/email-change/challenges:
+    post:
+      tags: [Account]
+      operationId: createEmailChangeChallenge
+      summary: Verify the current email and challenge a new email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmailChangeChallengeRequest'
+      responses:
+        '201':
+          description: Single-use code sent to the new email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailChangeChallenge'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '428':
+          $ref: '#/components/responses/FreshAuthenticationRequired'
+        '409':
+          description: The normalized new email is already in use.
+  /account/email-change/confirmations:
+    post:
+      tags: [Account]
+      operationId: confirmEmailChange
+      summary: Confirm the new email and replace the External ID identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailChangeRequest'
+      responses:
+        '204':
+          description: Email changed and existing sessions and leases revoked.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Challenge is invalid, expired, consumed, or out of attempts.
+  /account/security-notices:
+    get:
+      tags: [Security]
+      operationId: getActiveSecurityNotices
+      summary: Get active incident notices affecting the Account
+      responses:
+        '200':
+          description: Active notices only; this is not a security-activity log.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecurityNotice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /account/security-notices/{noticeId}/acknowledge:
+    post:
+      tags: [Security]
+      operationId: acknowledgeSecurityNotice
+      summary: Acknowledge an active incident notice
+      parameters:
+        - $ref: '#/components/parameters/NoticeId'
+      responses:
+        '204':
+          description: Notice acknowledged.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 components:
   securitySchemes:
     bearerAuth:
@@ -270,6 +542,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UuidV7'
+    NoticeId:
+      name: noticeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV7'
   responses:
     Unauthorized:
       description: Authentication is missing, invalid, or expired.
@@ -278,13 +556,21 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     Forbidden:
-      description: The account is not authorized for the current Household.
+      description: >-
+        The Account is not authorized. Machine-readable codes tell the client
+        when locally retained Household data must be purged immediately.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/AccessProblem'
+    OwnerRequired:
+      description: The current member is not the Household Owner.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
-    OwnerRequired:
-      description: The current member is not the Household Owner.
+    FreshAuthenticationRequired:
+      description: A hosted email-code sign-in completed within five minutes is required.
       content:
         application/problem+json:
           schema:
@@ -794,6 +1080,175 @@ components:
           items:
             $ref: '#/components/schemas/TripProjection'
         nextPageToken: { type: [string, 'null'] }
+    AcceptInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [token, memberAlias]
+      properties:
+        token:
+          type: string
+          minLength: 43
+          maxLength: 43
+          description: Base64url-encoded 256-bit single-use secret.
+        memberAlias:
+          $ref: '#/components/schemas/MemberAlias'
+    UpdateMemberAliasRequest:
+      type: object
+      additionalProperties: false
+      required: [memberAlias]
+      properties:
+        memberAlias:
+          $ref: '#/components/schemas/MemberAlias'
+    MemberAlias:
+      type: string
+      minLength: 1
+      maxLength: 80
+      description: >-
+        Display form; the server enforces Household-scoped uniqueness using the
+        shared normalized-name algorithm.
+    HouseholdMembership:
+      type: object
+      additionalProperties: false
+      required: [id, householdId, memberAlias, role, status]
+      properties:
+        id: { $ref: '#/components/schemas/UuidV7' }
+        householdId: { $ref: '#/components/schemas/UuidV7' }
+        memberAlias: { $ref: '#/components/schemas/MemberAlias' }
+        role: { type: string, enum: [owner, member] }
+        status: { type: string, enum: [active, deletion_suspended] }
+    InstallationLeaseRequest:
+      type: object
+      additionalProperties: false
+      required: [installationId]
+      properties:
+        installationId: { $ref: '#/components/schemas/UuidV4' }
+    InstallationLease:
+      type: object
+      additionalProperties: false
+      required: [token, issuedAt, expiresAt, serverTime]
+      properties:
+        token:
+          type: string
+          description: Signed opaque authorization lease stored by a Trusted Device.
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        serverTime: { type: string, format: date-time }
+    PolicyAcceptanceRequest:
+      type: object
+      additionalProperties: false
+      required: [termsVersion, privacyVersion, adultAttestation]
+      properties:
+        termsVersion: { type: string, minLength: 1 }
+        privacyVersion: { type: string, minLength: 1 }
+        adultAttestation: { type: boolean, enum: [true] }
+    PolicyAcceptance:
+      type: object
+      additionalProperties: false
+      required: [termsVersion, privacyVersion, adultAttestation, acceptedAt]
+      properties:
+        termsVersion: { type: string }
+        privacyVersion: { type: string }
+        adultAttestation: { type: boolean }
+        acceptedAt: { type: string, format: date-time }
+    SessionRevocation:
+      type: object
+      additionalProperties: false
+      required: [revokedAt]
+      properties:
+        revokedAt: { type: string, format: date-time }
+    DeletionStatus:
+      type: object
+      additionalProperties: false
+      required: [resource, state]
+      properties:
+        resource: { type: string, enum: [account, household] }
+        state: { type: string, enum: [active, deletion_quarantine] }
+        quarantineEndsAt: { type: [string, 'null'], format: date-time }
+        backupExpiryBy: { type: [string, 'null'], format: date-time }
+    CreateEmailChangeChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [newEmail]
+      properties:
+        newEmail: { type: string, format: email }
+    EmailChangeChallenge:
+      type: object
+      additionalProperties: false
+      required: [challengeId, expiresAt, attemptsRemaining]
+      properties:
+        challengeId: { $ref: '#/components/schemas/UuidV7' }
+        expiresAt: { type: string, format: date-time }
+        attemptsRemaining: { type: integer, minimum: 1, maximum: 5 }
+    ConfirmEmailChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code]
+      properties:
+        challengeId: { $ref: '#/components/schemas/UuidV7' }
+        code: { type: string, pattern: '^\\d{6}$' }
+    SecurityNotice:
+      type: object
+      additionalProperties: false
+      required: [id, title, summary, affectedData, mitigations, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/UuidV7' }
+        title: { type: string }
+        summary: { type: string }
+        affectedData:
+          type: array
+          items: { type: string }
+        mitigations:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        acknowledgedAt: { type: [string, 'null'], format: date-time }
+    AccountExport:
+      type: object
+      additionalProperties: false
+      required:
+        - exportedAt
+        - accountId
+        - verifiedEmail
+        - policyAcceptances
+        - securityRecords
+      properties:
+        exportedAt: { type: string, format: date-time }
+        accountId: { $ref: '#/components/schemas/UuidV7' }
+        verifiedEmail: { type: string, format: email }
+        membership:
+          oneOf:
+            - $ref: '#/components/schemas/HouseholdMembership'
+            - type: 'null'
+        policyAcceptances:
+          type: array
+          items: { $ref: '#/components/schemas/PolicyAcceptance' }
+        securityRecords:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    HouseholdMemberExport:
+      type: object
+      additionalProperties: false
+      required: [memberId, attribution, role, status]
+      properties:
+        memberId: { $ref: '#/components/schemas/UuidV7' }
+        attribution: { type: string }
+        role: { type: string, enum: [owner, member] }
+        status: { type: string, enum: [active, deletion_suspended, former] }
+    HouseholdExport:
+      type: object
+      additionalProperties: false
+      required: [exportedAt, householdId, members, projections]
+      properties:
+        exportedAt: { type: string, format: date-time }
+        householdId: { $ref: '#/components/schemas/UuidV7' }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/HouseholdMemberExport' }
+        projections:
+          type: array
+          items: { $ref: '#/components/schemas/Projection' }
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -803,10 +1258,10 @@ components:
     HouseholdInvitation:
       type: object
       additionalProperties: false
-      required: [id, email, status, expiresAt]
+      required: [id, status, expiresAt]
       properties:
         id: { $ref: '#/components/schemas/UuidV7' }
-        email: { type: string, format: email }
+        targetEmail: { type: [string, 'null'], format: email }
         status: { type: string, enum: [pending, accepted, revoked, expired] }
         expiresAt: { type: string, format: date-time }
     CreateOwnershipTransferRequest:
@@ -834,3 +1289,18 @@ components:
         status: { type: integer, minimum: 400, maximum: 599 }
         detail: { type: [string, 'null'] }
         traceId: { type: [string, 'null'] }
+    AccessProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum:
+                - forbidden
+                - membership_revoked
+                - account_deletion_pending
+                - account_deleted
+                - household_deletion_pending
+                - household_deleted

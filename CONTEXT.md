@@ -4,6 +4,10 @@ CartSync coordinates collaborative household shopping through store-specific pro
 
 ## Membership
 
+**Account**:
+A verified passwordless identity that may belong to zero or one Household.
+_Avoid_: User, login
+
 **Household**:
 The persistent collaboration boundary that owns shared stores, catalogs, planned trips, and completed-trip history, with exactly one owner and any number of members.
 _Avoid_: Group, family
@@ -15,6 +19,14 @@ _Avoid_: Administrator, admin
 **Household Member**:
 An authenticated person with full access to the household's shared shopping data and retained history.
 _Avoid_: Collaborator, guest
+
+**Member Alias**:
+The normalized-unique, member-controlled attribution attached to one Household membership; changes apply to all visible attribution and the alias remains reserved while that membership is suspended for deletion recovery.
+_Avoid_: Display name, username
+
+**Former Member**:
+The non-identifying attribution that replaces a Member Alias when a Household membership ends.
+_Avoid_: Deleted user, departed member
 
 **Household Invitation**:
 An expiring, revocable offer sent to an email address that allows the matching household-free account to join.

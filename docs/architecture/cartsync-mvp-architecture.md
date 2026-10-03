@@ -5,8 +5,10 @@ Status: accepted architecture baseline
 This specification defines the build boundary selected by
 [Choose the application architecture and interfaces](https://github.com/EduardoRaygoza/CartSync/issues/11).
 It implements the domain model in `CONTEXT.md` and the convergence rules in
-ADR-0002. Security policy details that require a product decision remain in
-[Define security, privacy, and account recovery](https://github.com/EduardoRaygoza/CartSync/issues/8).
+ADR-0002. The accepted security policy from
+[Define security, privacy, and account recovery](https://github.com/EduardoRaygoza/CartSync/issues/8)
+is specified in
+[`docs/security/mvp-security-privacy-and-recovery.md`](../security/mvp-security-privacy-and-recovery.md).
 
 ## System shape
 
