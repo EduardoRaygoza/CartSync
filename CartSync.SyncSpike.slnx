@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/spike/" />
+  <Folder Name="/spike/server/">
+    <Project Path="spike/server/CartSync.SyncApi.Tests/CartSync.SyncApi.Tests.csproj" />
+    <Project Path="spike/server/CartSync.SyncApi/CartSync.SyncApi.csproj" />
+  </Folder>
+</Solution>

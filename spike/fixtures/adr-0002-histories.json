@@ -1,0 +1,17 @@
+[
+  { "id": "offline-add-check", "expected": "accepted-after-restart" },
+  { "id": "same-field-edit", "expected": "causal-or-deterministic-winner" },
+  { "id": "concurrent-check-uncheck", "expected": "causal-or-deterministic-winner" },
+  { "id": "remove-versus-edit", "expected": "remove-plus-personal-sync-issue" },
+  { "id": "duplicate-products", "expected": "canonical-alias" },
+  { "id": "trip-entry-collision", "expected": "one-product-per-trip" },
+  { "id": "overlapping-department-moves", "expected": "stable-relative-order" },
+  { "id": "competing-completion", "expected": "first-completion-plus-sync-issue" },
+  { "id": "late-correction", "expected": "completed-history-correction" },
+  { "id": "carry-forward-conflict", "expected": "personal-sync-issue" },
+  { "id": "archived-product", "expected": "valid-reference-without-restore" },
+  { "id": "archived-store", "expected": "personal-sync-issue" },
+  { "id": "duplicate-upload", "expected": "already-applied" },
+  { "id": "unavailable-scope", "expected": "explicitly-unavailable" },
+  { "id": "offline-sync-issue-action", "expected": "durable-pending-resolution" }
+]
