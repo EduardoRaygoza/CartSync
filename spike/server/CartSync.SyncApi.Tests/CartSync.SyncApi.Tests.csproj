@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Content Include="../CartSync.SyncApi/Database/schema.sql" Link="Database/schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../fixtures/name-normalization.json" Link="Fixtures/name-normalization.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

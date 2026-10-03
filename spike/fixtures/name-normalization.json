@@ -1,6 +1,6 @@
 [
   { "source": "  whole   milk  ", "normalized": "WHOLE MILK" },
-  { "source": "Ｃａｆé", "normalized": "CAFé" },
+  { "source": "Ｃａｆé", "normalized": "CAFÉ" },
   { "source": "Jalapeño", "normalized": "JALAPEÑO" },
   { "source": "Tomato-Sauce", "normalized": "TOMATO-SAUCE" },
   { "source": "olive.oil", "normalized": "OLIVE.OIL" }

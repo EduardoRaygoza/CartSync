@@ -20,7 +20,7 @@ export class NativeSyncService {
     this.channel?.addEventListener('message', () => void this.refresh());
     try {
       this.db = await this.openDatabase();
-      await navigator.storage?.persist?.();
+      void navigator.storage?.persist?.();
       this.inspector.update(state => ({ ...state, durable: true }));
       await this.seed();
       await this.refresh();
