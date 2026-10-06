@@ -1,0 +1,116 @@
+name: Build release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [staging]
+
+permissions:
+  actions: write
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      RELEASE_TAG: v0.1.0-dogfood.${{ github.run_number }}
+      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+      PLATFORM_DEPLOYMENT: cartsync-staging-platform
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.401
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Record source tree
+        run: echo "SOURCE_TREE=$(git rev-parse "$SOURCE_COMMIT^{tree}")" >> "$GITHUB_ENV"
+
+      - name: Build immutable files
+        run: |
+          npm ci
+          npm run build:web
+          dotnet publish src/server/CartSync.DatabaseMigrator/CartSync.DatabaseMigrator.csproj -c Release -o artifacts/migrator
+          mkdir -p artifacts/release
+          tar -C src/web/dist/web/browser -czf artifacts/release/cartsync-web.tgz .
+          tar -C artifacts/migrator -czf artifacts/release/cartsync-migrator.tgz .
+          tar -C artifacts/generated/api-client -czf artifacts/release/cartsync-generated-client.tgz .
+          tar -C infra -czf artifacts/release/cartsync-bicep.tgz .
+          cp docs/api/openapi.yaml artifacts/release/openapi.yaml
+          cp release/release-manifest.schema.json artifacts/release/release-manifest.schema.json
+
+      - name: Provision staging platform
+        run: |
+          az deployment sub create \
+            --name "$PLATFORM_DEPLOYMENT" \
+            --location canadacentral \
+            --template-file infra/platform.bicep \
+            --parameters environment=staging \
+              notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' \
+              budgetStartDate='${{ vars.BUDGET_START_DATE }}'
+          registry="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value.registryName -o tsv)"
+          echo "REGISTRY_NAME=$registry" >> "$GITHUB_ENV"
+          echo "REGISTRY_SERVER=${registry}.azurecr.io" >> "$GITHUB_ENV"
+
+      - name: Build and push OCI artifacts once
+        run: |
+          az acr login --name "$REGISTRY_NAME"
+          docker buildx build --file src/server/CartSync.Api/Dockerfile --tag "$REGISTRY_SERVER/cartsync-api:$RELEASE_TAG" --push .
+          docker buildx build --file src/server/CartSync.DatabaseMigrator/Dockerfile --tag "$REGISTRY_SERVER/cartsync-migrator:$RELEASE_TAG" --push .
+          api_digest="$(az acr repository show --name "$REGISTRY_NAME" --image "cartsync-api:$RELEASE_TAG" --query digest -o tsv)"
+          migrator_digest="$(az acr repository show --name "$REGISTRY_NAME" --image "cartsync-migrator:$RELEASE_TAG" --query digest -o tsv)"
+          docker pull "$REGISTRY_SERVER/cartsync-api@$api_digest"
+          docker pull "$REGISTRY_SERVER/cartsync-migrator@$migrator_digest"
+          docker tag "$REGISTRY_SERVER/cartsync-api@$api_digest" "cartsync-api-archive:$RELEASE_TAG"
+          docker tag "$REGISTRY_SERVER/cartsync-migrator@$migrator_digest" "cartsync-migrator-archive:$RELEASE_TAG"
+          docker save "cartsync-api-archive:$RELEASE_TAG" -o artifacts/release/cartsync-api-image.tar
+          docker save "cartsync-migrator-archive:$RELEASE_TAG" -o artifacts/release/cartsync-migrator-image.tar
+          echo "API_DIGEST=$api_digest" >> "$GITHUB_ENV"
+          echo "MIGRATOR_DIGEST=$migrator_digest" >> "$GITHUB_ENV"
+
+      - name: Create and verify release manifest
+        env:
+          NODE_VERSION: 22.22.3
+          DOTNET_VERSION: 10.0.401
+          WEB_ARCHIVE: artifacts/release/cartsync-web.tgz
+          API_REPOSITORY: ${{ env.REGISTRY_SERVER }}/cartsync-api
+          API_IMAGE_ARCHIVE: artifacts/release/cartsync-api-image.tar
+          MIGRATOR_ARCHIVE: artifacts/release/cartsync-migrator.tgz
+          MIGRATOR_REPOSITORY: ${{ env.REGISTRY_SERVER }}/cartsync-migrator
+          MIGRATOR_IMAGE_ARCHIVE: artifacts/release/cartsync-migrator-image.tar
+          BICEP_ARCHIVE: artifacts/release/cartsync-bicep.tgz
+          GENERATED_CLIENT_ARCHIVE: artifacts/release/cartsync-generated-client.tgz
+          OPENAPI_FILE: artifacts/release/openapi.yaml
+        run: |
+          node tools/release/create-manifest.mjs artifacts/release/release-manifest.json
+          node tools/release/verify-manifest.mjs artifacts/release/release-manifest.json
+
+      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: artifacts/release/*
+      - name: Publish immutable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" artifacts/release/* \
+            --target "$SOURCE_COMMIT" \
+            --prerelease \
+            --title "$RELEASE_TAG" \
+            --notes "Immutable CartSync dogfood candidate built from $SOURCE_COMMIT."
+          gh workflow run deploy-staging.yml --ref staging -f releaseTag="$RELEASE_TAG"

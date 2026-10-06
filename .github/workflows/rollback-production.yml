@@ -1,0 +1,29 @@
+name: Rollback production
+
+on:
+  workflow_dispatch:
+    inputs:
+      priorReleaseTag:
+        description: Previously successful immutable release tag
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the pinned-manifest deployment in rollback mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run promote-production.yml \
+            --repo '${{ github.repository }}' \
+            --ref main \
+            -f releaseTag='${{ inputs.priorReleaseTag }}' \
+            -f operation=rollback \
+            -f simulateSmokeFailure=false

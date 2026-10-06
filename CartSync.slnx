@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/server/CartSync.Api/CartSync.Api.csproj" />
+    <Project Path="src/server/CartSync.DatabaseMigrator/CartSync.DatabaseMigrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/server/CartSync.Api.Tests/CartSync.Api.Tests.csproj" />
+    <Project Path="tests/server/CartSync.Database.Tests/CartSync.Database.Tests.csproj" />
+  </Folder>
+</Solution>
