@@ -21,9 +21,25 @@ for pair in staging:staging production:main; do
 done
 
 for branch in staging main; do
-  gh api --method PATCH "repos/${repo}/branches/${branch}/protection/required_status_checks" \
-    -F strict=true \
-    -f 'contexts[]=CI / required'
+  current="$(gh api "repos/${repo}/branches/${branch}/protection")"
+  jq -n --argjson current "$current" '{
+    required_status_checks:{strict:true,contexts:["CI / required"]},
+    enforce_admins:$current.enforce_admins.enabled,
+    required_pull_request_reviews:{
+      dismiss_stale_reviews:$current.required_pull_request_reviews.dismiss_stale_reviews,
+      require_code_owner_reviews:$current.required_pull_request_reviews.require_code_owner_reviews,
+      require_last_push_approval:$current.required_pull_request_reviews.require_last_push_approval,
+      required_approving_review_count:$current.required_pull_request_reviews.required_approving_review_count
+    },
+    restrictions:null,
+    required_linear_history:$current.required_linear_history.enabled,
+    allow_force_pushes:$current.allow_force_pushes.enabled,
+    allow_deletions:$current.allow_deletions.enabled,
+    block_creations:$current.block_creations.enabled,
+    required_conversation_resolution:$current.required_conversation_resolution.enabled,
+    lock_branch:$current.lock_branch.enabled,
+    allow_fork_syncing:$current.allow_fork_syncing.enabled
+  }' | gh api --method PUT "repos/${repo}/branches/${branch}/protection" --input -
 done
 
 printf 'GitHub environments exist and CI / required is strict on staging and main.\n'
