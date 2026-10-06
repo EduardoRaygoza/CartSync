@@ -4,7 +4,7 @@ set -euo pipefail
 repo="${1:-EduardoRaygoza/CartSync}"
 user_id="$(gh api user --jq .id)"
 
-jq -n '{wait_timer:0,prevent_self_review:false,deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' \
+jq -n '{wait_timer:0,deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' \
   | gh api --method PUT "repos/${repo}/environments/staging" --input -
 jq -n --argjson user_id "$user_id" \
   '{wait_timer:0,prevent_self_review:false,reviewers:[{type:"User",id:$user_id}],deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' \
