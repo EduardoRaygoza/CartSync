@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cartsync.app/schemas/release-manifest-v1.json",
+  "title": "CartSync release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "releaseTag", "sourceCommit", "sourceTree", "createdAt",
+    "toolchains", "artifacts", "manifestDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "releaseTag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+-dogfood\\.[0-9]+$" },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sourceTree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "toolchains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "dotnet", "openApiGenerator"],
+      "properties": {
+        "node": { "type": "string" },
+        "dotnet": { "type": "string" },
+        "openApiGenerator": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["web", "apiImage", "migrator", "migratorImage", "bicep", "openApi", "generatedClient"],
+      "properties": {
+        "web": { "$ref": "#/$defs/fileArtifact" },
+        "apiImage": { "$ref": "#/$defs/imageArtifact" },
+        "migrator": { "$ref": "#/$defs/fileArtifact" },
+        "migratorImage": { "$ref": "#/$defs/imageArtifact" },
+        "bicep": { "$ref": "#/$defs/fileArtifact" },
+        "openApi": { "$ref": "#/$defs/fileArtifact" },
+        "generatedClient": { "$ref": "#/$defs/fileArtifact" }
+      }
+    },
+    "manifestDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "fileArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "imageArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest", "archive", "sha256"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "archive": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

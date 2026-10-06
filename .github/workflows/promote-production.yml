@@ -1,0 +1,176 @@
+name: Promote production
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseTag:
+        description: Immutable dogfood release tag to deploy
+        required: true
+        type: string
+      operation:
+        description: Promotion or prior-manifest rollback
+        required: true
+        default: promote
+        type: choice
+        options: [promote, rollback]
+      simulateSmokeFailure:
+        description: Deliberately fail after deployment for the controlled rollback rehearsal
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      RELEASE_TAG: ${{ inputs.releaseTag }}
+      RESOURCE_GROUP: rg-cartsync-production
+      PLATFORM_DEPLOYMENT: cartsync-production-platform
+      RELEASE_DEPLOYMENT: cartsync-production-${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Download and authorize candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts/release web-deploy
+          gh release download "$RELEASE_TAG" --dir artifacts/release
+          node tools/release/verify-manifest.mjs artifacts/release/release-manifest.json --verify-files
+          source_commit="$(jq -r .sourceCommit artifacts/release/release-manifest.json)"
+          git merge-base --is-ancestor "$source_commit" HEAD
+          {
+            echo "SOURCE_COMMIT=$source_commit"
+            echo "SOURCE_API_DIGEST=$(jq -r .artifacts.apiImage.digest artifacts/release/release-manifest.json)"
+            echo "SOURCE_MIGRATOR_DIGEST=$(jq -r .artifacts.migratorImage.digest artifacts/release/release-manifest.json)"
+            echo "MANIFEST_DIGEST=$(jq -r .manifestDigest artifacts/release/release-manifest.json)"
+          } >> "$GITHUB_ENV"
+
+      - name: Provision production platform
+        run: |
+          az deployment sub what-if --location canadacentral --template-file infra/platform.bicep \
+            --parameters environment=production notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' budgetStartDate='${{ vars.BUDGET_START_DATE }}'
+          az deployment sub create --name "$PLATFORM_DEPLOYMENT" --location canadacentral --template-file infra/platform.bicep \
+            --parameters environment=production notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' budgetStartDate='${{ vars.BUDGET_START_DATE }}'
+          resources="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value -o json)"
+          identities="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.identities.value -o json)"
+          origins="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.origins.value -o json)"
+          {
+            echo "REGISTRY_NAME=$(jq -r .registryName <<<"$resources")"
+            echo "SQL_SERVER_NAME=$(jq -r .sqlServerName <<<"$resources")"
+            echo "CONTAINER_ENVIRONMENT_NAME=$(jq -r .containerEnvironmentName <<<"$resources")"
+            echo "STATIC_WEB_APP_NAME=$(jq -r .staticWebAppName <<<"$resources")"
+            echo "APP_INSIGHTS_CONNECTION_STRING=$(jq -r .appInsightsConnectionString <<<"$resources")"
+            echo "API_IDENTITY_NAME=$(jq -r .apiName <<<"$identities")"
+            echo "MIGRATION_IDENTITY_NAME=$(jq -r .migrationName <<<"$identities")"
+            echo "PULL_IDENTITY_NAME=$(jq -r .pullName <<<"$identities")"
+            echo "PWA_ORIGIN=$(jq -r .pwa <<<"$origins")"
+          } >> "$GITHUB_ENV"
+
+      - name: Promote exact OCI images from retained archives
+        run: |
+          az acr login --name "$REGISTRY_NAME"
+          docker load -i artifacts/release/cartsync-api-image.tar
+          docker load -i artifacts/release/cartsync-migrator-image.tar
+          docker tag "cartsync-api-archive:$RELEASE_TAG" "${REGISTRY_NAME}.azurecr.io/cartsync-api:$RELEASE_TAG"
+          docker tag "cartsync-migrator-archive:$RELEASE_TAG" "${REGISTRY_NAME}.azurecr.io/cartsync-migrator:$RELEASE_TAG"
+          docker push "${REGISTRY_NAME}.azurecr.io/cartsync-api:$RELEASE_TAG"
+          docker push "${REGISTRY_NAME}.azurecr.io/cartsync-migrator:$RELEASE_TAG"
+          api_digest="$(az acr repository show --name "$REGISTRY_NAME" --image "cartsync-api:$RELEASE_TAG" --query digest -o tsv)"
+          migrator_digest="$(az acr repository show --name "$REGISTRY_NAME" --image "cartsync-migrator:$RELEASE_TAG" --query digest -o tsv)"
+          test "$api_digest" = "$SOURCE_API_DIGEST"
+          test "$migrator_digest" = "$SOURCE_MIGRATOR_DIGEST"
+          echo "API_DIGEST=$api_digest" >> "$GITHUB_ENV"
+          echo "MIGRATOR_DIGEST=$migrator_digest" >> "$GITHUB_ENV"
+
+      - name: Deploy pinned production resources
+        run: |
+          parameters=(
+            environment=production containerEnvironmentName="$CONTAINER_ENVIRONMENT_NAME" registryName="$REGISTRY_NAME"
+            sqlServerName="$SQL_SERVER_NAME" apiIdentityName="$API_IDENTITY_NAME"
+            migrationIdentityName="$MIGRATION_IDENTITY_NAME" pullIdentityName="$PULL_IDENTITY_NAME"
+            apiImage="${REGISTRY_NAME}.azurecr.io/cartsync-api@${API_DIGEST}"
+            migratorImage="${REGISTRY_NAME}.azurecr.io/cartsync-migrator@${MIGRATOR_DIGEST}" pwaOrigin="$PWA_ORIGIN"
+            externalIdInstance='${{ vars.EXTERNAL_ID_INSTANCE }}' externalIdTenantId='${{ vars.EXTERNAL_ID_TENANT_ID }}'
+            externalIdApiClientId='${{ vars.EXTERNAL_ID_API_CLIENT_ID }}'
+            foundationExternalSubject='${{ vars.FOUNDATION_EXTERNAL_SUBJECT }}'
+            foundationAccountId='${{ vars.FOUNDATION_ACCOUNT_ID }}' foundationHouseholdId='${{ vars.FOUNDATION_HOUSEHOLD_ID }}'
+            foundationMemberId='${{ vars.FOUNDATION_MEMBER_ID }}' buildVersion="$RELEASE_TAG"
+            appInsightsConnectionString="$APP_INSIGHTS_CONNECTION_STRING"
+          )
+          az deployment group what-if --resource-group "$RESOURCE_GROUP" --template-file infra/release.bicep --parameters "${parameters[@]}"
+          az deployment group create --name "$RELEASE_DEPLOYMENT" --resource-group "$RESOURCE_GROUP" --template-file infra/release.bicep --parameters "${parameters[@]}"
+          echo "API_ORIGIN=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$RELEASE_DEPLOYMENT" --query properties.outputs.apiOrigin.value -o tsv)" >> "$GITHUB_ENV"
+          echo "MIGRATION_JOB_NAME=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$RELEASE_DEPLOYMENT" --query properties.outputs.migrationJobName.value -o tsv)" >> "$GITHUB_ENV"
+
+      - name: Run migration job
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          execution="$(az containerapp job start --resource-group "$RESOURCE_GROUP" --name "$MIGRATION_JOB_NAME" --query name -o tsv)"
+          for _attempt in $(seq 1 60); do
+            status="$(az containerapp job execution show --resource-group "$RESOURCE_GROUP" --name "$MIGRATION_JOB_NAME" --job-execution-name "$execution" --query properties.status -o tsv)"
+            test "$status" != Failed || exit 1
+            test "$status" != Succeeded || exit 0
+            sleep 10
+          done
+          exit 1
+
+      - name: Prepare web deployment
+        env:
+          CARTSYNC_ENVIRONMENT: production
+          CARTSYNC_API_ORIGIN: ${{ env.API_ORIGIN }}
+          EXTERNAL_ID_AUTHORITY: ${{ vars.EXTERNAL_ID_AUTHORITY }}
+          EXTERNAL_ID_SPA_CLIENT_ID: ${{ vars.EXTERNAL_ID_SPA_CLIENT_ID }}
+          EXTERNAL_ID_SCOPE: ${{ vars.EXTERNAL_ID_SCOPE }}
+          CARTSYNC_BUILD_VERSION: ${{ env.RELEASE_TAG }}
+        run: |
+          tar -C web-deploy -xzf artifacts/release/cartsync-web.tgz
+          echo "RUNTIME_CONFIG_DIGEST=$(node tools/deployment/write-runtime-config.mjs web-deploy/runtime-config.json)" >> "$GITHUB_ENV"
+
+      - name: Get GitHub OIDC token for Static Web Apps
+        id: swa-id-token
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: return await core.getIDToken()
+          result-encoding: string
+      - uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1 # v1
+        with:
+          azure_static_web_apps_api_token: ''
+          github_id_token: ${{ steps.swa-id-token.outputs.result }}
+          action: upload
+          app_location: web-deploy
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
+          production_branch: main
+
+      - name: Smoke and record production deployment
+        run: |
+          node tools/deployment/smoke.mjs "$API_ORIGIN"
+          test '${{ inputs.simulateSmokeFailure }}' != true
+          jq -n --arg operation '${{ inputs.operation }}' --arg releaseTag "$RELEASE_TAG" \
+            --arg manifestDigest "$MANIFEST_DIGEST" --arg runtimeConfigDigest "$RUNTIME_CONFIG_DIGEST" \
+            --arg sourceCommit "$SOURCE_COMMIT" --arg apiOrigin "$API_ORIGIN" \
+            '{environment:"production",operation:$operation,releaseTag:$releaseTag,sourceCommit:$sourceCommit,manifestDigest:$manifestDigest,runtimeConfigDigest:$runtimeConfigDigest,apiOrigin:$apiOrigin}' \
+            > deployment-record.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-${{ inputs.operation }}-${{ env.RELEASE_TAG }}
+          path: deployment-record.json
+          retention-days: 90

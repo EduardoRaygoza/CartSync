@@ -867,7 +867,7 @@ components:
     BootstrapPage:
       type: object
       additionalProperties: false
-      required: [projections, aliases, syncIssues, terminal, nextPageToken]
+      required: [projections, aliases, syncIssues, terminal, terminalHouseholdCursor, nextPageToken]
       properties:
         projections:
           type: array

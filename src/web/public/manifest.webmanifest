@@ -1,0 +1,9 @@
+{
+  "name": "CartSync",
+  "short_name": "CartSync",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f7",
+  "theme_color": "#2f5d50",
+  "lang": "en-CA"
+}

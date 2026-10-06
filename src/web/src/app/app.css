@@ -1,0 +1,20 @@
+main {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+mat-card {
+  width: min(32rem, 100%);
+}
+
+mat-card-content {
+  min-height: 4rem;
+  padding-top: 1rem;
+}
+
+mat-card-actions {
+  gap: 0.5rem;
+}
