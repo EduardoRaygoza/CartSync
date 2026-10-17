@@ -43,6 +43,12 @@ applications for staging and production. Each API exposes the delegated
 Static Web Apps origin as a redirect URI. The API registration does not use a
 client secret.
 
+Assign the setup administrator as an owner of both each environment's API and
+SPA app registrations. In the SPA's **API permissions → Add a permission → My
+APIs** picker, an API can be missing when these registrations have no owner.
+Also confirm both registrations are in the External ID tenant and that the API's
+`access_as_user` scope is enabled under **Expose an API**.
+
 The following GitHub environment variables are required in both environments:
 
 | Variable | Meaning |
