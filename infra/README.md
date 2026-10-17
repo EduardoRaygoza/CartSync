@@ -12,6 +12,11 @@ credential or Static Web Apps deployment token is stored in GitHub.
 3. `release.bicep` deploys only pinned image digests, migration configuration,
    runtime configuration, and the API revision for a particular release.
 
+The application resources use Canada Central where available. Azure Static Web
+Apps is created in West US 2 because `Microsoft.Web/staticSites` is not offered
+in Canada Central. The subscription-level platform deployment record also uses
+West US 2; its location is separate from the resources' locations.
+
 ## One-time Azure bootstrap
 
 The operator needs Azure subscription Owner access for the two bootstrap

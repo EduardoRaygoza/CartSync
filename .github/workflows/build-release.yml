@@ -59,9 +59,9 @@ jobs:
         run: |
           az deployment sub create \
             --name "$PLATFORM_DEPLOYMENT" \
-            --location canadacentral \
+            --location westus2 \
             --template-file infra/platform.bicep \
-            --parameters environment=staging \
+            --parameters environment=staging location=canadacentral staticWebAppLocation=westus2 \
               notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' \
               budgetStartDate='${{ vars.BUDGET_START_DATE }}'
           registry="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value.registryName -o tsv)"

@@ -3,7 +3,8 @@ targetScope = 'subscription'
 @allowed(['staging', 'production'])
 param environment string
 param location string = 'canadacentral'
-param staticWebAppLocation string = 'canadacentral'
+// Static Web Apps is not offered in Canada Central. Keep the other resources there.
+param staticWebAppLocation string = 'westus2'
 param notificationEmail string
 param budgetStartDate string
 param githubOwner string = 'EduardoRaygoza'
