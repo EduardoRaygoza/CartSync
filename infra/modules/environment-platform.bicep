@@ -42,14 +42,7 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = 
   sku: { name: 'Basic' }
   properties: {
     adminUserEnabled: false
-    dataEndpointEnabled: false
     publicNetworkAccess: 'Enabled'
-    policies: {
-      exportPolicy: { status: 'enabled' }
-      quarantinePolicy: { status: 'disabled' }
-      retentionPolicy: { days: 7, status: 'enabled' }
-      trustPolicy: { type: 'Notary', status: 'disabled' }
-    }
   }
 }
 
