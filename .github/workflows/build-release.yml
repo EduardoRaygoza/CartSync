@@ -17,6 +17,7 @@ jobs:
       RELEASE_TAG: v0.1.0-dogfood.${{ github.run_number }}
       SOURCE_COMMIT: ${{ github.sha }}
       PLATFORM_DEPLOYMENT: cartsync-staging-platform
+      RESOURCE_GROUP: rg-cartsync-staging
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -51,16 +52,10 @@ jobs:
           cp docs/api/openapi.yaml artifacts/release/openapi.yaml
           cp release/release-manifest.schema.json artifacts/release/release-manifest.schema.json
 
-      - name: Provision staging platform
+      - name: Resolve pre-provisioned staging platform
         run: |
-          az deployment sub create \
-            --name "$PLATFORM_DEPLOYMENT" \
-            --location westus2 \
-            --template-file infra/platform.bicep \
-            --parameters environment=staging location=canadacentral staticWebAppLocation=westus2 \
-              notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' \
-              budgetStartDate='${{ vars.BUDGET_START_DATE }}'
-          registry="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value.registryName -o tsv)"
+          registry="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value.registryName -o tsv)"
+          test -n "$registry"
           echo "REGISTRY_NAME=$registry" >> "$GITHUB_ENV"
           echo "REGISTRY_SERVER=${registry}.azurecr.io" >> "$GITHUB_ENV"
 
