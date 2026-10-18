@@ -62,15 +62,11 @@ jobs:
             echo "MANIFEST_DIGEST=$(jq -r .manifestDigest artifacts/release/release-manifest.json)"
           } >> "$GITHUB_ENV"
 
-      - name: Provision production platform
+      - name: Resolve pre-provisioned production platform
         run: |
-          az deployment sub what-if --location westus2 --template-file infra/platform.bicep \
-            --parameters environment=production location=canadacentral staticWebAppLocation=westus2 notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' budgetStartDate='${{ vars.BUDGET_START_DATE }}'
-          az deployment sub create --name "$PLATFORM_DEPLOYMENT" --location westus2 --template-file infra/platform.bicep \
-            --parameters environment=production location=canadacentral staticWebAppLocation=westus2 notificationEmail='${{ vars.NOTIFICATION_EMAIL }}' budgetStartDate='${{ vars.BUDGET_START_DATE }}'
-          resources="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value -o json)"
-          identities="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.identities.value -o json)"
-          origins="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.origins.value -o json)"
+          resources="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value -o json)"
+          identities="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.identities.value -o json)"
+          origins="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.origins.value -o json)"
           {
             echo "REGISTRY_NAME=$(jq -r .registryName <<<"$resources")"
             echo "SQL_SERVER_NAME=$(jq -r .sqlServerName <<<"$resources")"

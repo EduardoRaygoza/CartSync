@@ -6,9 +6,11 @@ credential or Static Web Apps deployment token is stored in GitHub.
 1. An Owner runs `bootstrap.bicep` once for `staging` and once for `production`.
    It creates each resource group, a deployment identity, an environment-bound
    GitHub federated credential, and resource-group-scoped deployment roles.
-2. `platform.bicep` creates each environment's independent long-lived Azure
-   resources. Pull, API, migration, database, registry, and monitoring identities
-   are never shared between environments.
+2. An Owner runs `platform.bicep` for each environment's independent long-lived
+   Azure resources. Pull, API, migration, database, registry, and monitoring
+   identities are never shared between environments. The resource-group-scoped
+   GitHub deployment identity does not create or update this subscription-level
+   platform deployment.
 3. `release.bicep` deploys only pinned image digests, migration configuration,
    runtime configuration, and the API revision for a particular release.
 
@@ -33,6 +35,21 @@ az deployment sub create --name cartsync-production-bootstrap --location canadac
 
 Copy each deployment's `deploymentClientId`, `tenantId`, and `subscriptionId`
 outputs into non-secret variables on the matching GitHub environment.
+
+The Owner then provisions the platform before running release workflows. Repeat
+the what-if/create pair for production with `environment=production` and
+`cartsync-production-platform` only after configuring its budget and identity:
+
+```bash
+az deployment sub what-if --location westus2 --template-file infra/platform.bicep \
+  --parameters environment=staging notificationEmail='<email>' budgetStartDate='<YYYY-MM-01>'
+az deployment sub create --name cartsync-staging-platform --location westus2 \
+  --template-file infra/platform.bicep \
+  --parameters environment=staging notificationEmail='<email>' budgetStartDate='<YYYY-MM-01>'
+```
+
+Release workflows read the platform module's resource-group-scoped deployment
+outputs and deploy only the release resources within that group.
 
 ## External ID
 

@@ -45,9 +45,9 @@ jobs:
 
       - name: Resolve platform outputs
         run: |
-          resources="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value -o json)"
-          identities="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.identities.value -o json)"
-          origins="$(az deployment sub show --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.origins.value -o json)"
+          resources="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.resources.value -o json)"
+          identities="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.identities.value -o json)"
+          origins="$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$PLATFORM_DEPLOYMENT" --query properties.outputs.origins.value -o json)"
           {
             echo "REGISTRY_NAME=$(jq -r .registryName <<<"$resources")"
             echo "SQL_SERVER_NAME=$(jq -r .sqlServerName <<<"$resources")"

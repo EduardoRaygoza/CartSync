@@ -1,7 +1,9 @@
 param environment string
 param location string
 param githubOwner string
+param githubOwnerId string
 param githubRepository string
+param githubRepositoryId string
 
 resource deploymentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-cartsync-${environment}-deploy'
@@ -12,8 +14,8 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   parent: deploymentIdentity
   name: 'github-${environment}'
   properties: {
-    issuer: 'https://token.actions.githubusercontent.com/'
-    subject: 'repo:${githubOwner}/${githubRepository}:environment:${environment}'
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: 'repo:${githubOwner}@${githubOwnerId}/${githubRepository}@${githubRepositoryId}:environment:${environment}'
     audiences: ['api://AzureADTokenExchange']
   }
 }
