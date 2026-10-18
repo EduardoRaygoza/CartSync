@@ -12,7 +12,7 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   parent: deploymentIdentity
   name: 'github-${environment}'
   properties: {
-    issuer: 'https://token.actions.githubusercontent.com/'
+    issuer: 'https://token.actions.githubusercontent.com'
     subject: 'repo:${githubOwner}/${githubRepository}:environment:${environment}'
     audiences: ['api://AzureADTokenExchange']
   }
