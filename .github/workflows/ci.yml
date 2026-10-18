@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  required:
+    name: CI / required
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate default-branch workflow bootstrap
+        run: |
+          test ! -e package.json
+          test -f .github/workflows/deploy-staging.yml
+          grep -q 'workflow_dispatch:' .github/workflows/deploy-staging.yml
+          grep -q 'environment: staging' .github/workflows/deploy-staging.yml
