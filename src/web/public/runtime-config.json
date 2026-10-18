@@ -1,0 +1,8 @@
+{
+  "environment": "local",
+  "apiOrigin": "https://localhost:7247",
+  "externalIdAuthority": "https://example.ciamlogin.com/example.onmicrosoft.com",
+  "externalIdClientId": "00000000-0000-0000-0000-000000000000",
+  "externalIdScope": "api://00000000-0000-0000-0000-000000000000/access_as_user",
+  "buildVersion": "development"
+}

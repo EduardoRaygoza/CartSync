@@ -1,0 +1,19 @@
+<main>
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>CartSync</mat-card-title>
+      <mat-card-subtitle>{{ config.environment }} · {{ config.buildVersion }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p aria-live="polite">{{ status() }}</p>
+    </mat-card-content>
+    <mat-card-actions>
+      @if (!signedIn()) {
+        <button mat-flat-button type="button" [disabled]="busy()" (click)="signIn()">Sign in with email</button>
+      } @else {
+        <button mat-flat-button type="button" [disabled]="busy()" (click)="retry()">Retry connection</button>
+        <button mat-button type="button" (click)="signOut()">Sign out</button>
+      }
+    </mat-card-actions>
+  </mat-card>
+</main>

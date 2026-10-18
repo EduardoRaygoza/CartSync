@@ -1,0 +1,27 @@
+{
+  "name": "cartsync",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0 <23",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "src/web",
+    "tests/e2e"
+  ],
+  "scripts": {
+    "build": "npm run generate:api && npm run build --workspace @cartsync/web",
+    "build:web": "npm run generate:api && npm run build --workspace @cartsync/web",
+    "generate:api": "bash tools/openapi/generate.sh",
+    "lint:openapi": "bash tools/openapi/validate.sh",
+    "verify:aspnet-contract": "node tools/openapi/compare-aspnet.mjs",
+    "test": "npm run test --workspace @cartsync/web",
+    "test:e2e": "npm run test --workspace @cartsync/e2e",
+    "verify:manifest": "node tools/release/verify-manifest.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.18.0",
+    "yaml": "2.8.3"
+  }
+}

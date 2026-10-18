@@ -6,6 +6,17 @@
 # dotenv files
 .env
 
+# Node, Angular, Playwright, and generated artifacts
+node_modules/
+.angular/
+playwright-report/
+test-results/
+artifacts/
+src/web/dist/
+
+# Local public runtime configuration overrides
+src/web/public/runtime-config.local.json
+
 # User-specific files
 *.rsuser
 *.suo
@@ -24,6 +35,8 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+!release/
+!release/*.json
 x64/
 x86/
 [Ww][Ii][Nn]32/
