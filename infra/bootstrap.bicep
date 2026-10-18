@@ -4,7 +4,9 @@ targetScope = 'subscription'
 param environment string
 param location string = 'canadacentral'
 param githubOwner string = 'EduardoRaygoza'
+param githubOwnerId string = '39197906'
 param githubRepository string = 'CartSync'
+param githubRepositoryId string = '1382501218'
 
 var resourceGroupName = 'rg-cartsync-${environment}'
 
@@ -20,7 +22,9 @@ module environmentBootstrap 'modules/bootstrap-environment.bicep' = {
     environment: environment
     location: location
     githubOwner: githubOwner
+    githubOwnerId: githubOwnerId
     githubRepository: githubRepository
+    githubRepositoryId: githubRepositoryId
   }
 }
 

@@ -86,6 +86,7 @@ jobs:
             az bicep build --file infra/platform.bicep
             az bicep build --file infra/release.bicep
             grep -Fqx "    issuer: 'https://token.actions.githubusercontent.com'" infra/modules/bootstrap-environment.bicep
+            grep -Fq "subject: 'repo:\${githubOwner}@\${githubOwnerId}/\${githubRepository}@\${githubRepositoryId}:environment:\${environment}'" infra/modules/bootstrap-environment.bicep
             ! grep -RE "AllowAllWindowsAzureIps|0\.0\.0\.0.*0\.0\.0\.0" infra --include='*.bicep'
             ! grep -RE "adminUserEnabled: true" infra --include='*.bicep'
 
