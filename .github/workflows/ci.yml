@@ -116,3 +116,14 @@ jobs:
           RESULTS: ${{ toJson(needs) }}
         run: |
           test "$(jq -r '[.[].result] | all(. == "success")' <<<"$RESULTS")" = "true"
+
+  release:
+    name: Build release
+    needs: required
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging' && needs.required.result == 'success'
+    permissions:
+      actions: write
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/build-release.yml
